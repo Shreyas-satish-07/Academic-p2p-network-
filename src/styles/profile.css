@@ -306,3 +306,27 @@
     text-align: center;
   }
 }
+
+/* ===== Two-column Profile Layout ===== */
+.profile-columns-layout {
+  display: grid;
+  grid-template-columns: 1.55fr 1.45fr;
+  gap: 18px;
+  width: 100%;
+  align-items: start;
+}
+
+.profile-left-col,
+.profile-right-col {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  min-width: 0;
+  width: 100%;
+}
+
+@media (max-width: 1024px) {
+  .profile-columns-layout {
+    grid-template-columns: 1fr;
+  }
+}

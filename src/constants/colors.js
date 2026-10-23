@@ -1,0 +1,17 @@
+export const COLORS = {
+    paper: 'var(--paper)',
+    card: 'var(--card)',
+    ink: 'var(--ink)',
+    inkSoft: 'var(--ink-soft)',
+    inkFaint: 'var(--ink-faint)',
+    pine: 'var(--pine)',
+    pineDark: 'var(--pine-dark)',
+    pineTint: 'var(--pine-tint)',
+    marigold: 'var(--marigold)',
+    marigoldTint: 'var(--marigold-tint)',
+    slate: 'var(--slate)',
+    slateTint: 'var(--slate-tint)',
+    rust: 'var(--rust)',
+    rustTint: 'var(--rust-tint)',
+    line: 'var(--line)',
+};
