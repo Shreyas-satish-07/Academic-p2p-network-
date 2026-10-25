@@ -9,4 +9,8 @@ export const ROUTES = {
     RESOURCES: '/resources',
     PROJECTS: '/projects',
     DISCUSSIONS: '/discussions',
+    LOGIN: '/login',
+    REGISTER: '/register',
+    FORGOT_PASSWORD: '/forgot-password',
+    RESET_PASSWORD: '/reset-password',
 };

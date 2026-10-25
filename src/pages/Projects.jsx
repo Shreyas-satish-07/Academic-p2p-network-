@@ -1,674 +1,407 @@
-import React, { useState, useEffect } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
-import { motion } from 'framer-motion';
+import React, { useState, useMemo, useEffect } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
+import { CheckCircle2 } from 'lucide-react';
 import AppLayout from '../components/layout/AppLayout';
-import Button from '../components/ui/button';
+import ProjectsHero from '../features/projects/components/ProjectsHero';
+import FeaturedProject from '../features/projects/components/FeaturedProject';
+import ProjectFilters from '../features/projects/components/ProjectFilters';
+import ProjectCard from '../features/projects/components/ProjectCard';
+import ProjectDetailsModal from '../features/projects/components/ProjectDetailsModal';
+import CreateProjectModal from '../features/projects/components/CreateProjectModal';
+import JoinProjectModal from '../features/projects/components/JoinProjectModal';
+import EmptyProjects from '../features/projects/components/EmptyProjects';
 import { ROUTES } from '../constants/routes';
-import { INITIAL_PROJECTS, CONNECTIONS, CURRENT_USER_MEMBER } from '../data/projectsData';
-import '../styles/projects.css';
+
+import {
+  INITIAL_PROJECTS,
+} from '../features/projects/projectsData';
+
+import '../features/projects/projects.css';
+
+/**
+ * Projects collaboration hub page
+ * Allows students to discover open projects, create projects, request to join,
+ * view team details, and manage Kanban project tasks.
+ * 
+ * Future Backend Architecture (Express & MongoDB):
+ * GET    /api/projects                  -> Fetch paginated projects with filters and text search
+ * GET    /api/projects/:id              -> Get full project document with embedded/referenced tasks
+ * POST   /api/projects                  -> Create new project document with creator as owner
+ * PATCH  /api/projects/:id              -> Update project settings, deadline, or required skills
+ * POST   /api/projects/:id/join         -> Send membership application to project owner
+ * PATCH  /api/projects/:id/tasks/:taskId -> Update task status or assignee; recalculate progress
+ * GET    /api/projects/:id/activity     -> Fetch project activity history
+ */
 export const Projects = () => {
-    const navigate = useNavigate();
-    const location = useLocation();
-    const [projects, setProjects] = useState(INITIAL_PROJECTS);
-    const [searchQuery, setSearchQuery] = useState('');
-    const [activeTab, setActiveTab] = useState('all');
-    const [selectedDept, setSelectedDept] = useState('All');
-    // Project Detail state
-    const [selectedProject, setSelectedProject] = useState(null);
-    const [detailTab, setDetailTab] = useState('overview');
-    useEffect(() => {
-        if (location.state) {
-            const stateObj = location.state;
-            if (stateObj.openCreateModal) {
-                handleOpenCreateModal();
-            }
-            if (stateObj.projectId) {
-                const proj = projects.find(p => p.id === stateObj.projectId);
-                if (proj) {
-                    setSelectedProject(proj);
-                    setDetailTab('overview');
-                }
-            }
-            // Clear location state to prevent repeating actions on page reloads/renders
-            window.history.replaceState({}, document.title);
+  const location = useLocation();
+  const navigate = useNavigate();
+
+  // Main projects dataset state
+  const [projects, setProjects] = useState(INITIAL_PROJECTS);
+
+  // Filter & Search states
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState('All Categories');
+  const [selectedStatus, setSelectedStatus] = useState('all');
+  const [selectedRecruitment, setSelectedRecruitment] = useState('all');
+  const [selectedSkill, setSelectedSkill] = useState('All Skills');
+  const [sortBy, setSortBy] = useState('recent');
+
+  // Modal interaction states
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [selectedProjectForDetails, setSelectedProjectForDetails] = useState(null);
+  const [detailsInitialTab, setDetailsInitialTab] = useState('overview');
+  const [projectForJoin, setProjectForJoin] = useState(null);
+
+  // Toast notification state
+  const [toastMessage, setToastMessage] = useState(null);
+
+  const showToast = (message) => {
+    setToastMessage(message);
+    setTimeout(() => {
+      setToastMessage(null);
+    }, 3500);
+  };
+
+  // Cross-page navigation state handling (e.g. from Dashboard "Create Project" or direct link)
+  useEffect(() => {
+    if (location.state) {
+      const stateObj = location.state;
+      if (stateObj.openCreateModal) {
+        setIsCreateModalOpen(true);
+      }
+      if (stateObj.projectId) {
+        const proj = projects.find((p) => p.id === stateObj.projectId);
+        if (proj) {
+          setSelectedProjectForDetails(proj);
+          setDetailsInitialTab('overview');
         }
-    }, [location.state, projects]);
-    // Confirmation dialog state
-    const [confirmJoinProject, setConfirmJoinProject] = useState(null);
-    // Create Project Modal state
-    const [showCreateModal, setShowCreateModal] = useState(false);
-    const [newTitle, setNewTitle] = useState('');
-    const [newDesc, setNewDesc] = useState('');
-    const [newDept, setNewDept] = useState('Computer Science');
-    const [newCategory, setNewCategory] = useState('Web App');
-    const [newSkills, setNewSkills] = useState('');
-    const [newDeadline, setNewDeadline] = useState('');
-    const [newLooking, setNewLooking] = useState(true);
-    const [selectedMemberIds, setSelectedMemberIds] = useState([]);
-    // Toast Alerts
-    const [toastMessage, setToastMessage] = useState(null);
-    const showToast = (msg) => {
-        setToastMessage(msg);
-        setTimeout(() => {
-            setToastMessage(null);
-        }, 3000);
-    };
-    const handleDownload = (filename) => {
-        showToast(`Download started: ${filename}`);
-    };
-    const handleOpenCreateModal = () => {
-        setNewTitle('');
-        setNewDesc('');
-        setNewDept('Computer Science');
-        setNewCategory('Web App');
-        setNewSkills('');
-        setNewDeadline('');
-        setNewLooking(true);
-        setSelectedMemberIds([]);
-        setShowCreateModal(true);
-    };
-    const handleCreateProjectSubmit = (e) => {
-        e.preventDefault();
-        if (!newTitle.trim()) {
-            showToast('Project title is required.');
-            return;
-        }
-        const newProjId = `p-${Date.now()}`;
-        const skillsList = newSkills.split(',').map(s => s.trim()).filter(Boolean);
-        // Current user is pre-populated as member
-        const projMembers = [CURRENT_USER_MEMBER];
-        selectedMemberIds.forEach(id => {
-            const conn = CONNECTIONS.find(c => c.id === id);
-            if (conn)
-                projMembers.push(conn);
+      }
+      window.history.replaceState({}, document.title);
+    }
+  }, [location.state, projects]);
+
+  /**
+   * Handle Create Project Submission
+   * Future Backend API: POST /api/projects
+   */
+  const handleCreateProject = (newProject) => {
+    setProjects((prev) => [newProject, ...prev]);
+    showToast(`Project "${newProject.title}" published successfully!`);
+  };
+
+  /**
+   * Handle Join Project Request Submission
+   * Future Backend API: POST /api/projects/:id/join
+   */
+  const handleConfirmJoin = (projectId, _note) => {
+    setProjects((prev) =>
+      prev.map((p) => {
+        if (p.id !== projectId) return p;
+        const newActivity = {
+          id: `act-join-${Date.now()}`,
+          user: 'You',
+          action: 'submitted a request to join the project team',
+          time: 'Just now',
+        };
+        return {
+          ...p,
+          recruitmentStatus: 'request-sent',
+          activity: [newActivity, ...(p.activity || [])],
+        };
+      })
+    );
+
+    // Sync active details modal if opened
+    if (selectedProjectForDetails && selectedProjectForDetails.id === projectId) {
+      setSelectedProjectForDetails((prev) =>
+        prev
+          ? {
+              ...prev,
+              recruitmentStatus: 'request-sent',
+              activity: [
+                {
+                  id: `act-join-${Date.now()}`,
+                  user: 'You',
+                  action: 'submitted a request to join the project team',
+                  time: 'Just now',
+                },
+                ...(prev.activity || []),
+              ],
+            }
+          : null
+      );
+    }
+
+    const target = projects.find((p) => p.id === projectId);
+    showToast(`Join request sent for "${target?.title || 'Project'}"!`);
+  };
+
+  /**
+   * Handle Kanban Task status transitions and recalculate project completion percentage locally
+   * Future Backend API: PATCH /api/projects/:id/tasks/:taskId
+   */
+  const handleTaskStatusChange = (projectId, taskId, newStatus) => {
+    let taskName = '';
+
+    setProjects((prev) =>
+      prev.map((proj) => {
+        if (proj.id !== projectId) return proj;
+
+        const updatedTasks = proj.tasks.map((task) => {
+          if (task.id === taskId) {
+            taskName = task.title;
+            return { ...task, status: newStatus };
+          }
+          return task;
         });
-        // Setup initial empty tasks and resources
-        const initialTasks = [
-            { id: `t_${newProjId}_1`, text: 'Setup project repositories', completed: false },
-            { id: `t_${newProjId}_2`, text: 'Define system architecture designs', completed: false },
-            { id: `t_${newProjId}_3`, text: 'Build responsive mockup UI screens', completed: false }
-        ];
-        const newProj = {
-            id: newProjId,
-            title: newTitle.trim(),
-            description: newDesc.trim() || 'No description provided.',
-            technologies: skillsList.length > 0 ? skillsList : ['React', 'JavaScript'],
-            status: 'In progress',
-            featured: false,
-            repositoryUrl: '#',
-            department: newDept,
-            uploader: CURRENT_USER_MEMBER.name,
-            membersCount: projMembers.length,
-            neededSkills: skillsList,
-            recruitmentStatus: 'Joined',
-            completedTasks: 0,
-            totalTasks: initialTasks.length,
-            deadline: newDeadline.trim() || 'TBD',
-            avatarBg: 'var(--pine-tint)',
-            avatarColor: 'var(--pine-dark)',
-            members: projMembers,
-            tasks: initialTasks,
-            resources: [],
-            timeline: [
-                { id: `l_${newProjId}_1`, time: 'Just now', text: 'Project created and initialized by You.' }
-            ]
+
+        const completedCount = updatedTasks.filter((t) => t.status === 'completed').length;
+        const newProgress = updatedTasks.length
+          ? Math.round((completedCount / updatedTasks.length) * 100)
+          : 0;
+
+        const newActivity = {
+          id: `act-task-${Date.now()}`,
+          user: 'You',
+          action: `moved task "${taskName || taskId}" to ${newStatus}`,
+          time: 'Just now',
         };
-        setProjects(prev => [newProj, ...prev]);
-        setShowCreateModal(false);
-        showToast(`Project created successfully: ${newTitle}`);
-    };
-    const handleRequestJoinProject = () => {
-        if (!confirmJoinProject)
-            return;
-        // Add log entry to the project timeline
-        const nowLog = {
-            id: `l-join-${Date.now()}`,
-            time: 'Just now',
-            text: 'Request to join project submitted by You.'
+
+        const updatedProj = {
+          ...proj,
+          tasks: updatedTasks,
+          progress: newProgress,
+          activity: [newActivity, ...(proj.activity || [])],
         };
-        setProjects(prev => prev.map(p => {
-            if (p.id === confirmJoinProject.id) {
-                const originalTimeline = p.timeline || [];
-                return {
-                    ...p,
-                    recruitmentStatus: 'Request Sent',
-                    timeline: [nowLog, ...originalTimeline]
-                };
-            }
-            return p;
-        }));
-        // Update selectedProject state as well if it is currently viewed
-        if (selectedProject && selectedProject.id === confirmJoinProject.id) {
-            setSelectedProject(prev => {
-                if (!prev)
-                    return null;
-                const originalTimeline = prev.timeline || [];
-                return {
-                    ...prev,
-                    recruitmentStatus: 'Request Sent',
-                    timeline: [nowLog, ...originalTimeline]
-                };
-            });
+
+        // Synchronize selected modal state
+        if (selectedProjectForDetails && selectedProjectForDetails.id === projectId) {
+          setSelectedProjectForDetails(updatedProj);
         }
-        showToast('Join request sent');
-        setConfirmJoinProject(null);
-    };
-    const handleGoToWorkspace = (workspaceId) => {
-        if (workspaceId) {
-            navigate(ROUTES.MESSAGES, { state: { activeWorkspaceId: workspaceId } });
+
+        return updatedProj;
+      })
+    );
+
+    showToast(`Task updated to ${newStatus.replace('-', ' ')}`);
+  };
+
+  /**
+   * Handle Open Workspace navigation
+   */
+  const handleOpenWorkspace = (project) => {
+    showToast(`Connecting to ${project.title} collaboration channel...`);
+    if (ROUTES.MESSAGES) {
+      navigate(ROUTES.MESSAGES, { state: { activeWorkspaceId: project.id } });
+    }
+  };
+
+  /**
+   * Reset all search and dropdown filters
+   */
+  const handleResetFilters = () => {
+    setSearchQuery('');
+    setSelectedCategory('All Categories');
+    setSelectedStatus('all');
+    setSelectedRecruitment('all');
+    setSelectedSkill('All Skills');
+    setSortBy('recent');
+  };
+
+  // Count active non-default filters
+  const activeFilterCount = useMemo(() => {
+    let count = 0;
+    if (searchQuery.trim().length > 0) count += 1;
+    if (selectedCategory !== 'All Categories') count += 1;
+    if (selectedStatus !== 'all') count += 1;
+    if (selectedRecruitment !== 'all') count += 1;
+    if (selectedSkill !== 'All Skills') count += 1;
+    return count;
+  }, [searchQuery, selectedCategory, selectedStatus, selectedRecruitment, selectedSkill]);
+
+  // Filtered projects pipeline
+  const filteredProjects = useMemo(() => {
+    return projects.filter((proj) => {
+      // 1. Search Query (title, description, technologies, requiredSkills, tags, owner)
+      if (searchQuery.trim()) {
+        const q = searchQuery.toLowerCase();
+        const matchesTitle = proj.title.toLowerCase().includes(q);
+        const matchesDesc = proj.description.toLowerCase().includes(q);
+        const matchesOwner = proj.owner.toLowerCase().includes(q);
+        const matchesTech = proj.technologies.some((t) => t.toLowerCase().includes(q));
+        const matchesSkills = proj.requiredSkills.some((s) => s.toLowerCase().includes(q));
+        const matchesTags = proj.tags ? proj.tags.some((t) => t.toLowerCase().includes(q)) : false;
+
+        if (!matchesTitle && !matchesDesc && !matchesOwner && !matchesTech && !matchesSkills && !matchesTags) {
+          return false;
         }
-        else {
-            navigate(ROUTES.MESSAGES);
+      }
+
+      // 2. Category Filter
+      if (selectedCategory !== 'All Categories' && proj.category !== selectedCategory) {
+        return false;
+      }
+
+      // 3. Status Filter (planning, active, completed)
+      if (selectedStatus !== 'all' && proj.status !== selectedStatus) {
+        return false;
+      }
+
+      // 4. Recruitment Filter (open, joined, request-sent)
+      if (selectedRecruitment !== 'all' && proj.recruitmentStatus !== selectedRecruitment) {
+        return false;
+      }
+
+      // 5. Skill Filter
+      if (selectedSkill !== 'All Skills') {
+        const hasSkillInNeeded = proj.requiredSkills.includes(selectedSkill);
+        const hasSkillInTech = proj.technologies.includes(selectedSkill);
+        if (!hasSkillInNeeded && !hasSkillInTech) {
+          return false;
         }
-    };
-    const handleViewProject = (proj) => {
-        setSelectedProject(proj);
-        setDetailTab('overview');
-    };
-    const handleToggleDetailTask = (taskId) => {
-        if (!selectedProject || !selectedProject.tasks)
-            return;
-        const updatedTasks = selectedProject.tasks.map(task => task.id === taskId ? { ...task, completed: !task.completed } : task);
-        const completedCount = updatedTasks.filter(t => t.completed).length;
-        // Append to timeline log on completion
-        const targetTask = selectedProject.tasks.find(t => t.id === taskId);
-        const timelineUpdates = [...(selectedProject.timeline || [])];
-        if (targetTask) {
-            const isNowCompleted = !targetTask.completed;
-            timelineUpdates.unshift({
-                id: `l-task-${Date.now()}`,
-                time: 'Just now',
-                text: `Task "${targetTask.text}" marked as ${isNowCompleted ? 'completed' : 'incomplete'} by You.`
-            });
-        }
-        const updatedProject = {
-            ...selectedProject,
-            tasks: updatedTasks,
-            completedTasks: completedCount,
-            timeline: timelineUpdates
-        };
-        setSelectedProject(updatedProject);
-        setProjects(prev => prev.map(p => (p.id === selectedProject.id ? updatedProject : p)));
-    };
-    // Helper to extract unique departments for filters
-    const uniqueDepts = ['All', ...Array.from(new Set(projects.map(p => p.department).filter(Boolean)))];
-    // Filters logic
-    const filteredProjects = projects.filter(proj => {
-        // 1. Tab filter
-        if (activeTab === 'open' && proj.recruitmentStatus !== 'Open')
-            return false;
-        if (activeTab === 'joined' && proj.recruitmentStatus !== 'Joined')
-            return false;
-        // 2. Department filter
-        if (selectedDept !== 'All' && proj.department !== selectedDept)
-            return false;
-        // 3. Search query
-        const query = searchQuery.toLowerCase().trim();
-        if (!query)
-            return true;
-        return (proj.title.toLowerCase().includes(query) ||
-            proj.description.toLowerCase().includes(query) ||
-            proj.uploader?.toLowerCase().includes(query) ||
-            proj.technologies.some(t => t.toLowerCase().includes(query)) ||
-            proj.neededSkills?.some(s => s.toLowerCase().includes(query)));
+      }
+
+      return true;
     });
-    // Featured list
-    const featuredList = projects.filter(p => p.featured === true);
-    return (<AppLayout>
-      <motion.div className="w-full flex flex-col gap-1" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, ease: 'easeOut' }}>
-        <div className="projects-container">
+  }, [projects, searchQuery, selectedCategory, selectedStatus, selectedRecruitment, selectedSkill]);
 
-          {/* Render Project Detail Experience if a project is selected */}
-          {selectedProject ? (<div className="project-details-container">
-              {/* Back navigation */}
-              <button className="project-details-back-link" onClick={() => setSelectedProject(null)}>
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                  <path d="M19 12H5m7 7-7-7 7-7"/>
-                </svg>
-                Back to Projects
-              </button>
+  // Sorted projects pipeline
+  const sortedProjects = useMemo(() => {
+    const list = [...filteredProjects];
+    switch (sortBy) {
+      case 'deadline':
+        return list.sort((a, b) => a.deadline.localeCompare(b.deadline));
+      case 'progress':
+        return list.sort((a, b) => b.progress - a.progress);
+      case 'openings':
+        return list.sort(
+          (a, b) => (b.maxMembers - b.members.length) - (a.maxMembers - a.members.length)
+        );
+      case 'recent':
+      default:
+        return list;
+    }
+  }, [filteredProjects, sortBy]);
 
-              {/* Project Header */}
-              <div className="project-details-header">
-                <div className="details-header-title-row">
-                  <div className="details-header-icon" style={{ background: selectedProject.avatarBg, color: selectedProject.avatarColor }}>
-                    🚀
-                  </div>
-                  <h2 className="details-header-title text-wrap-protect">{selectedProject.title}</h2>
-                </div>
-                <div className="details-header-meta">
-                  <span>Lead: <strong>{selectedProject.uploader}</strong></span>
-                  <span>•</span>
-                  <span>Dept: <strong>{selectedProject.department}</strong></span>
-                  <span>•</span>
-                  <span>Members: <strong>{selectedProject.membersCount}</strong></span>
-                  <span>•</span>
-                  <span>Progress: <strong>{selectedProject.completedTasks} / {selectedProject.totalTasks}</strong></span>
-                </div>
-              </div>
+  // Featured Project: Academic Peer-to-Peer Network
+  const featuredProject = useMemo(() => {
+    return (
+      projects.find((p) => p.id === 'proj-academic-p2p') ||
+      projects[0]
+    );
+  }, [projects]);
 
-              {/* Tab Navigation row */}
-              <div className="details-tabs-nav">
-                <button className={`details-tab-btn ${detailTab === 'overview' ? 'active' : ''}`} onClick={() => setDetailTab('overview')}>
-                  Overview
-                </button>
-                <button className={`details-tab-btn ${detailTab === 'tasks' ? 'active' : ''}`} onClick={() => setDetailTab('tasks')}>
-                  Tasks
-                </button>
-                <button className={`details-tab-btn ${detailTab === 'resources' ? 'active' : ''}`} onClick={() => setDetailTab('resources')}>
-                  Resources
-                </button>
-                <button className={`details-tab-btn ${detailTab === 'members' ? 'active' : ''}`} onClick={() => setDetailTab('members')}>
-                  Members
-                </button>
-                <button className={`details-tab-btn ${detailTab === 'timeline' ? 'active' : ''}`} onClick={() => setDetailTab('timeline')}>
-                  Timeline
-                </button>
-              </div>
+  return (
+    <AppLayout>
+      <div className="projects-page-container">
+        {/* Section 1: Hero Section */}
+        <ProjectsHero onCreateClick={() => setIsCreateModalOpen(true)} />
 
-              {/* Tab Content Panes */}
-              <div className="details-tab-panel">
-                
-                {/* A. OVERVIEW PANEL */}
-                {detailTab === 'overview' && (<div className="details-overview-wrap">
-                    <div className="details-info-section">
-                      <span className="details-info-label">Description</span>
-                      <p className="details-info-val text-wrap-protect">{selectedProject.description}</p>
-                    </div>
+        {/* Section 2: Featured Project Spotlight */}
+        {featuredProject && (
+          <FeaturedProject
+            project={featuredProject}
+            onOpenDetails={(proj) => {
+              setSelectedProjectForDetails(proj);
+              setDetailsInitialTab('overview');
+            }}
+            onOpenTasks={(proj) => {
+              setSelectedProjectForDetails(proj);
+              setDetailsInitialTab('tasks');
+            }}
+            onOpenWorkspace={handleOpenWorkspace}
+          />
+        )}
 
-                    <div className="details-info-section">
-                      <span className="details-info-label">Technologies</span>
-                      <div className="library-project-skills-needed" style={{ marginTop: '4px' }}>
-                        {selectedProject.technologies.map(tech => (<span key={tech} className="skill-pill">{tech}</span>))}
-                      </div>
-                    </div>
+        {/* Section 3: Filter & Search Controls */}
+        <ProjectFilters
+          searchQuery={searchQuery}
+          onSearchChange={setSearchQuery}
+          selectedCategory={selectedCategory}
+          onCategoryChange={setSelectedCategory}
+          selectedStatus={selectedStatus}
+          onStatusChange={setSelectedStatus}
+          selectedRecruitment={selectedRecruitment}
+          onRecruitmentChange={setSelectedRecruitment}
+          selectedSkill={selectedSkill}
+          onSkillChange={setSelectedSkill}
+          sortBy={sortBy}
+          onSortChange={setSortBy}
+          onClearFilters={handleResetFilters}
+          activeFilterCount={activeFilterCount}
+        />
 
-                    {selectedProject.neededSkills && selectedProject.neededSkills.length > 0 && (<div className="details-info-section">
-                        <span className="details-info-label">Required Skills Needed</span>
-                        <div className="library-project-skills-needed" style={{ marginTop: '4px' }}>
-                          {selectedProject.neededSkills.map(skill => (<span key={skill} className="skill-pill" style={{ borderColor: 'var(--marigold)' }}>
-                              {skill}
-                            </span>))}
-                        </div>
-                      </div>)}
-
-                    <div className="details-info-section">
-                      <span className="details-info-label">Deadline</span>
-                      <p className="details-info-val">📅 {selectedProject.deadline}</p>
-                    </div>
-
-                    <div className="details-info-section" style={{ maxWidth: '320px' }}>
-                      <span className="details-info-label">Tasks Progress</span>
-                      <div className="library-project-tasks-wrap" style={{ marginTop: '4px' }}>
-                        <div className="tasks-meta-row">
-                          <span>{selectedProject.completedTasks} / {selectedProject.totalTasks} Completed</span>
-                          <span>{selectedProject.totalTasks ? Math.round((selectedProject.completedTasks / selectedProject.totalTasks) * 100) : 0}%</span>
-                        </div>
-                        <div className="tasks-progress-bar-track">
-                          <div className="tasks-progress-bar-fill" style={{ width: `${selectedProject.totalTasks ? (selectedProject.completedTasks / selectedProject.totalTasks) * 100 : 0}%` }}/>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="details-info-section">
-                      <span className="details-info-label">Recruitment Status</span>
-                      <div style={{ marginTop: '4px' }}>
-                        {selectedProject.recruitmentStatus === 'Joined' ? (<span className="library-project-status-badge status-badge-joined">Joined</span>) : selectedProject.recruitmentStatus === 'Request Sent' ? (<span className="library-project-status-badge status-badge-request">Request Sent</span>) : selectedProject.recruitmentStatus === 'Closed' ? (<span className="library-project-status-badge status-badge-closed">Closed</span>) : (<Button className="outline library-project-join-btn" onClick={() => setConfirmJoinProject(selectedProject)}>
-                            Join Project
-                          </Button>)}
-                      </div>
-                    </div>
-
-                    {selectedProject.recruitmentStatus === 'Joined' && selectedProject.workspaceId && (<div className="details-info-section">
-                        <span className="details-info-label">Project Workspace</span>
-                        <div style={{ marginTop: '4px' }}>
-                          <Button className="primary" onClick={() => handleGoToWorkspace(selectedProject.workspaceId)}>
-                            Go to Collaboration Workspace
-                          </Button>
-                        </div>
-                      </div>)}
-                  </div>)}
-
-                {/* B. TASKS PANEL */}
-                {detailTab === 'tasks' && (<div className="details-tasks-list">
-                    <h4 className="details-info-label" style={{ marginBottom: '8px' }}>Project Checklist</h4>
-                    {!selectedProject.tasks || selectedProject.tasks.length === 0 ? (<p className="no-items-text" style={{ fontSize: '13px', color: 'var(--ink-faint)' }}>No tasks assigned.</p>) : (<div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-                        {selectedProject.tasks.map(task => (<label key={task.id} className="details-task-row">
-                            <input type="checkbox" className="details-task-checkbox" checked={task.completed} onChange={() => handleToggleDetailTask(task.id)}/>
-                            <span className={`details-task-text text-wrap-protect ${task.completed ? 'task-text-checked' : ''}`}>
-                              {task.text}
-                            </span>
-                          </label>))}
-                      </div>)}
-                  </div>)}
-
-                {/* C. RESOURCES PANEL */}
-                {detailTab === 'resources' && (<div className="projects-library-section">
-                    <h4 className="details-info-label" style={{ marginBottom: '8px' }}>Shared Resources</h4>
-                    {!selectedProject.resources || selectedProject.resources.length === 0 ? (<div className="projects-empty-state">
-                        <span className="projects-empty-icon">📁</span>
-                        <span className="projects-empty-text">No resources shared yet</span>
-                        <span className="projects-empty-sub">Files shared in this project will appear here.</span>
-                      </div>) : (<div className="projects-library-grid">
-                        {selectedProject.resources.map(res => (<div key={res.id} className="library-resource-card">
-                            <div className="library-card-header">
-                              <div className="library-card-icon" style={{ background: res.bgClass, color: res.textClass }}>
-                                {res.type === 'Research Paper' ? 'REP' : res.type === 'Cheat Sheet' ? 'CHT' : res.type === 'Presentation' ? 'PRE' : res.type?.substring(0, 3).toUpperCase()}
-                              </div>
-                              <div className="library-card-header-info">
-                                <h4 className="library-card-title text-wrap-protect">{res.title}</h4>
-                                <span className="library-card-subject">{res.subject} • {res.type}</span>
-                              </div>
-                            </div>
-                            <p className="library-card-body text-wrap-protect">{res.description}</p>
-                            <div className="library-card-footer">
-                              <div className="library-card-uploader-info">
-                                <span className="uploader-name">By {res.uploader}</span>
-                                <span className="uploader-date">{res.date}{res.fileSize ? ` · ${res.fileSize}` : ''}</span>
-                              </div>
-                              <Button className="outline library-card-download-btn" onClick={() => handleDownload(res.title || '')}>
-                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ width: '12px', height: '12px' }}>
-                                  <path d="M12 3v12m0 0-4-4m4 4 4-4"/>
-                                  <path d="M4 19h16"/>
-                                </svg>
-                                Download
-                              </Button>
-                            </div>
-                          </div>))}
-                      </div>)}
-                  </div>)}
-
-                {/* D. MEMBERS PANEL */}
-                {detailTab === 'members' && (<div className="projects-library-section">
-                    <h4 className="details-info-label" style={{ marginBottom: '8px' }}>Project Contributors</h4>
-                    <div className="projects-library-grid">
-                      {selectedProject.members?.map(m => (<div key={m.id} className="library-resource-card" style={{ flexDirection: 'row', alignItems: 'center', gap: '14px', padding: '14px' }}>
-                          <div className="project-avatar-mini" style={{ width: '38px', height: '38px', fontSize: '13px', margin: 0, background: 'var(--pine)' }}>
-                            {m.initials}
-                          </div>
-                          <div style={{ minWidth: 0, flex: 1 }}>
-                            <h4 className="library-project-title text-wrap-protect" style={{ fontSize: '13.5px' }}>{m.name}</h4>
-                            <span className="library-project-subtitle" style={{ display: 'block', marginTop: '2px' }}>
-                              {m.department} • {m.semester}
-                            </span>
-                          </div>
-                        </div>))}
-                    </div>
-                  </div>)}
-
-                {/* E. TIMELINE PANEL */}
-                {detailTab === 'timeline' && (<div className="timeline-logs-list">
-                    <h4 className="details-info-label" style={{ marginBottom: '4px' }}>Project Activity Feed</h4>
-                    {!selectedProject.timeline || selectedProject.timeline.length === 0 ? (<p className="no-items-text" style={{ fontSize: '13px', color: 'var(--ink-faint)', padding: '12px' }}>No updates logged yet.</p>) : (selectedProject.timeline.map(log => (<div key={log.id} className="timeline-log-entry">
-                          <span className="timeline-log-time">{log.time}</span>
-                          <div className="timeline-log-card text-wrap-protect">
-                            {log.text}
-                          </div>
-                        </div>)))}
-                  </div>)}
-
-              </div>
-            </div>) : (<>
-              {/* 1. Header Section */}
-              <div className="projects-header-section">
-                <h2 className="serif" style={{ fontSize: '26px', fontWeight: 600 }}>Projects</h2>
-                <p className="projects-desc-text">
-                  Discover • Build • Collaborate
-                </p>
-
-                <div className="projects-search-row">
-                  <div className="projects-search-input-wrap">
-                    <svg className="projects-search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <circle cx="11" cy="11" r="8"/>
-                      <path d="m21 21-4.3-4.3"/>
-                    </svg>
-                    <input type="text" className="projects-search-input" placeholder="Search projects by title, description, skills..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)}/>
-                  </div>
-                  <Button className="primary projects-create-btn" onClick={handleOpenCreateModal}>
-                    <span>➕</span> New Project
-                  </Button>
-                </div>
-              </div>
-
-              {/* 2. Filters Bar */}
-              <div className="projects-filters-bar">
-                <div className="projects-tabs-row">
-                  <button className={`filter-tab-btn ${activeTab === 'all' ? 'active' : ''}`} onClick={() => setActiveTab('all')}>
-                    All Projects
-                  </button>
-                  <button className={`filter-tab-btn ${activeTab === 'open' ? 'active' : ''}`} onClick={() => setActiveTab('open')}>
-                    Open Roles
-                  </button>
-                  <button className={`filter-tab-btn ${activeTab === 'joined' ? 'active' : ''}`} onClick={() => setActiveTab('joined')}>
-                    My Projects
-                  </button>
-                </div>
-
-                <div className="projects-dropdowns-row">
-                  <div className="filter-select-wrap">
-                    <label htmlFor="dept-select">Department:</label>
-                    <select id="dept-select" className="filter-select" value={selectedDept} onChange={(e) => setSelectedDept(e.target.value)}>
-                      {uniqueDepts.map(dept => (<option key={dept} value={dept}>{dept}</option>))}
-                    </select>
-                  </div>
-                </div>
-              </div>
-
-              {/* 3. Featured Spotlights */}
-              {!searchQuery && activeTab === 'all' && selectedDept === 'All' && featuredList.length > 0 && (<div className="projects-featured-section">
-                  <h3 className="section-title-secondary">Featured Projects</h3>
-                  <div className="projects-featured-grid">
-                    {featuredList.map(proj => (<div key={proj.id} className="featured-project-card" style={{ background: proj.avatarBg }}>
-                        <div className="featured-project-icon-box" style={{ background: proj.avatarColor, color: '#fff' }}>
-                          🚀
-                        </div>
-                        <div className="featured-project-content">
-                          <div className="featured-project-meta-row">
-                            <span className="featured-project-lead">{proj.department} • Lead: {proj.uploader}</span>
-                            <span className="featured-project-badge">Featured</span>
-                          </div>
-                          <h4 className="featured-project-title text-wrap-protect">{proj.title}</h4>
-                          <p className="featured-project-desc text-wrap-protect">{proj.description}</p>
-                          
-                          <div className="library-project-skills-needed" style={{ marginTop: '4px' }}>
-                            {proj.technologies.slice(0, 3).map(tech => (<span key={tech} className="skill-pill">{tech}</span>))}
-                          </div>
-
-                          <div className="library-project-footer" style={{ border: 'none', padding: 0, marginTop: '8px' }}>
-                            <div className="library-project-avatars-stack">
-                              {proj.members?.map(m => (<div key={m.id} className="project-avatar-mini" style={{ background: 'var(--pine)', color: '#fff' }} title={m.name}>
-                                  {m.initials}
-                                </div>))}
-                            </div>
-
-                            <div className="library-project-actions">
-                              <Button className="outline library-project-join-btn" onClick={() => handleViewProject(proj)}>
-                                View Project
-                              </Button>
-
-                              {proj.recruitmentStatus === 'Joined' && proj.workspaceId && (<Button className="primary library-project-workspace-btn" onClick={() => handleGoToWorkspace(proj.workspaceId)}>
-                                  Workspace
-                                </Button>)}
-                              {proj.recruitmentStatus === 'Open' && (<Button className="outline library-project-join-btn" onClick={() => setConfirmJoinProject(proj)}>
-                                  Join Project
-                                </Button>)}
-                              {proj.recruitmentStatus === 'Request Sent' && (<span className="library-project-status-badge status-badge-request">Request Sent</span>)}
-                            </div>
-                          </div>
-                        </div>
-                      </div>))}
-                  </div>
-                </div>)}
-
-              {/* 4. Project Grid */}
-              <div className="projects-library-section">
-                <h3 className="section-title-secondary">Projects For You</h3>
-                {filteredProjects.length === 0 ? (<div className="projects-empty-state">
-                    <span className="projects-empty-icon">📂</span>
-                    <span className="projects-empty-text">No projects found</span>
-                    <span className="projects-empty-sub">Try adjusting your filters or query search keywords.</span>
-                  </div>) : (<div className="projects-library-grid">
-                    {filteredProjects.map(proj => (<div key={proj.id} className="library-project-card">
-                        <div className="library-project-header">
-                          <div className="library-project-icon" style={{ background: proj.avatarBg, color: proj.avatarColor }}>
-                            🚀
-                          </div>
-                          <div className="library-project-header-info">
-                            <h4 className="library-project-title text-wrap-protect">{proj.title}</h4>
-                            <span className="library-project-subtitle">{proj.department} • Lead: {proj.uploader}</span>
-                          </div>
-                        </div>
-
-                        <p className="library-project-desc text-wrap-protect">{proj.description}</p>
-
-                        <div className="library-project-skills-needed">
-                          {proj.technologies.map(tech => (<span key={tech} className="skill-pill">{tech}</span>))}
-                        </div>
-
-                        {/* Progress tracking indicator */}
-                        <div className="library-project-tasks-wrap">
-                          <div className="tasks-meta-row">
-                            <span>Tasks Progress</span>
-                            <span>{proj.completedTasks} / {proj.totalTasks}</span>
-                          </div>
-                          <div className="tasks-progress-bar-track">
-                            <div className="tasks-progress-bar-fill" style={{ width: `${proj.totalTasks ? (proj.completedTasks / proj.totalTasks) * 100 : 0}%` }}/>
-                          </div>
-                        </div>
-
-                        <div className="library-project-footer">
-                          <div className="library-project-avatars-stack">
-                            {proj.members?.map(m => (<div key={m.id} className="project-avatar-mini" style={{ background: 'var(--pine)', color: '#fff' }} title={m.name}>
-                                {m.initials}
-                              </div>))}
-                          </div>
-
-                          <div className="library-project-actions">
-                            <Button className="outline library-project-join-btn" onClick={() => handleViewProject(proj)}>
-                              View Project
-                            </Button>
-
-                            {proj.recruitmentStatus === 'Joined' ? (<>
-                                {proj.workspaceId && (<Button className="primary library-project-workspace-btn" onClick={() => handleGoToWorkspace(proj.workspaceId)}>
-                                    Workspace
-                                  </Button>)}
-                              </>) : proj.recruitmentStatus === 'Request Sent' ? (<span className="library-project-status-badge status-badge-request">Request Sent</span>) : proj.recruitmentStatus === 'Closed' ? (<span className="library-project-status-badge status-badge-closed">Closed</span>) : (<Button className="outline library-project-join-btn" onClick={() => setConfirmJoinProject(proj)}>
-                                Join Project
-                              </Button>)}
-                          </div>
-                        </div>
-
-                      </div>))}
-                  </div>)}
-              </div>
-            </>)}
-
-        </div>
-      </motion.div>
-
-      {/* 5. CREATE NEW PROJECT MODAL */}
-      {showCreateModal && (<div className="collab-modal-overlay">
-          <div className="collab-modal">
-            <h3 className="collab-modal-title">Create Academic Project</h3>
-            
-            <form onSubmit={handleCreateProjectSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-              <div className="collab-modal-field">
-                <label className="collab-modal-label" htmlFor="proj-title-in">Project Name</label>
-                <input id="proj-title-in" type="text" className="collab-modal-input" placeholder="e.g. Autonomous Drones Navigation" required value={newTitle} onChange={(e) => setNewTitle(e.target.value)}/>
-              </div>
-
-              <div className="collab-modal-field">
-                <label className="collab-modal-label" htmlFor="proj-dept-select">Department</label>
-                <select id="proj-dept-select" className="collab-modal-select" value={newDept} onChange={(e) => setNewDept(e.target.value)}>
-                  <option value="Computer Science">Computer Science</option>
-                  <option value="Electrical Engineering">Electrical Engineering</option>
-                  <option value="Data Science">Data Science</option>
-                  <option value="Information Technology">Information Technology</option>
-                  <option value="Other">Other</option>
-                </select>
-              </div>
-
-              <div className="collab-modal-field">
-                <label className="collab-modal-label" htmlFor="proj-cat-select">Project Category</label>
-                <select id="proj-cat-select" className="collab-modal-select" value={newCategory} onChange={(e) => setNewCategory(e.target.value)}>
-                  <option value="Mobile App">Mobile App</option>
-                  <option value="Web App">Web App</option>
-                  <option value="AI/ML">AI / Machine Learning</option>
-                  <option value="Robotics">Robotics</option>
-                  <option value="Research">Research Work</option>
-                  <option value="IoT">IoT / Embedded</option>
-                  <option value="Other">Other</option>
-                </select>
-              </div>
-
-              <div className="collab-modal-field">
-                <label className="collab-modal-label" htmlFor="proj-skills-in">Skills Needed (comma-separated)</label>
-                <input id="proj-skills-in" type="text" className="collab-modal-input" placeholder="e.g. React Native, Firebase, UI Design" value={newSkills} onChange={(e) => setNewSkills(e.target.value)}/>
-              </div>
-
-              <div className="collab-modal-field">
-                <label className="collab-modal-label" htmlFor="proj-deadline-in">Deadline</label>
-                <input id="proj-deadline-in" type="text" className="collab-modal-input" placeholder="e.g. Sep 30 or Milestone 1: Aug 25" value={newDeadline} onChange={(e) => setNewDeadline(e.target.value)}/>
-              </div>
-
-              <div className="collab-modal-field" style={{ flexDirection: 'row', alignItems: 'center', gap: '8px' }}>
-                <input type="checkbox" id="proj-looking-toggle" checked={newLooking} onChange={(e) => setNewLooking(e.target.checked)} style={{ width: '16px', height: '16px', accentColor: 'var(--pine)', cursor: 'pointer' }}/>
-                <label className="collab-modal-label" htmlFor="proj-looking-toggle" style={{ cursor: 'pointer' }}>
-                  Looking for Collaborators
-                </label>
-              </div>
-
-              <div className="collab-modal-field">
-                <label className="collab-modal-label">Add Members (from connections)</label>
-                <div className="collab-modal-student-list">
-                  {CONNECTIONS.map(conn => (<label key={conn.id} className="student-select-row" style={{ cursor: 'pointer' }}>
-                      <input type="checkbox" checked={selectedMemberIds.includes(conn.id)} onChange={() => {
-                    if (selectedMemberIds.includes(conn.id)) {
-                        setSelectedMemberIds(prev => prev.filter(id => id !== conn.id));
-                    }
-                    else {
-                        setSelectedMemberIds(prev => [...prev, conn.id]);
-                    }
-                }} style={{ accentColor: 'var(--pine)', cursor: 'pointer' }}/>
-                      <div className="student-avatar-mini" style={{ background: 'var(--pine)' }}>
-                        {conn.initials}
-                      </div>
-                      <div className="student-details text-wrap-protect">
-                        <span className="student-select-name">{conn.name}</span>
-                        <span className="student-select-sub">{conn.department} • Semester {conn.semester}</span>
-                      </div>
-                    </label>))}
-                </div>
-              </div>
-
-              <div className="collab-modal-actions" style={{ marginTop: '8px' }}>
-                <Button className="outline" type="button" onClick={() => setShowCreateModal(false)}>Cancel</Button>
-                <Button className="primary" type="submit">Create</Button>
-              </div>
-            </form>
+        {/* Section 4 & Section 9: Project Grid or Empty State */}
+        <section className="proj-grid-section" aria-label="Projects Catalog">
+          <div className="proj-grid-header">
+            <span className="proj-grid-count">
+              Showing {sortedProjects.length} {sortedProjects.length === 1 ? 'Project' : 'Projects'}
+            </span>
           </div>
-        </div>)}
 
-      {/* 6. JOIN PROJECT CONFIRMATION DIALOG */}
-      {confirmJoinProject && (<div className="confirmation-overlay">
-          <div className="confirmation-dialog">
-            <h3 className="confirmation-title">Request to Join Project</h3>
-            <p className="confirmation-body text-wrap-protect">
-              Are you sure you want to send a request to join the project <strong>"{confirmJoinProject.title}"</strong> led by {confirmJoinProject.uploader}?
-            </p>
-            <div className="confirmation-actions">
-              <Button className="outline" onClick={() => setConfirmJoinProject(null)}>Cancel</Button>
-              <Button className="primary" onClick={handleRequestJoinProject}>Request to Join</Button>
+          {sortedProjects.length === 0 ? (
+            <EmptyProjects
+              onResetFilters={handleResetFilters}
+              onCreateProjectClick={() => setIsCreateModalOpen(true)}
+            />
+          ) : (
+            <div className="proj-grid" role="list">
+              {sortedProjects.map((proj) => (
+                <ProjectCard
+                  key={proj.id}
+                  project={proj}
+                  onViewDetails={(p) => {
+                    setSelectedProjectForDetails(p);
+                    setDetailsInitialTab('overview');
+                  }}
+                  onRequestJoin={(p) => setProjectForJoin(p)}
+                  onOpenWorkspace={handleOpenWorkspace}
+                />
+              ))}
             </div>
+          )}
+        </section>
+
+        {/* Section 5 & 6: Project Details Modal (includes Kanban TaskBoard) */}
+        <ProjectDetailsModal
+          project={selectedProjectForDetails}
+          isOpen={Boolean(selectedProjectForDetails)}
+          initialTab={detailsInitialTab}
+          onClose={() => setSelectedProjectForDetails(null)}
+          onTaskStatusChange={handleTaskStatusChange}
+          onRequestJoin={(p) => {
+            setSelectedProjectForDetails(null);
+            setProjectForJoin(p);
+          }}
+          onOpenWorkspace={handleOpenWorkspace}
+        />
+
+        {/* Section 7: Create Project Modal */}
+        <CreateProjectModal
+          isOpen={isCreateModalOpen}
+          onClose={() => setIsCreateModalOpen(false)}
+          onCreateProject={handleCreateProject}
+        />
+
+        {/* Section 8: Join Project Modal */}
+        <JoinProjectModal
+          project={projectForJoin}
+          isOpen={Boolean(projectForJoin)}
+          onClose={() => setProjectForJoin(null)}
+          onConfirmJoin={handleConfirmJoin}
+        />
+
+        {/* Floating Toast Notification */}
+        {toastMessage && (
+          <div className="proj-toast" role="status" aria-live="polite">
+            <CheckCircle2 size={18} className="text-pine flex-shrink-0" aria-hidden="true" />
+            <span>{toastMessage}</span>
           </div>
-        </div>)}
-
-      {/* 7. TOAST NOTIFICATIONS */}
-      {toastMessage && (<div className="collab-toast">
-          <span>🔔</span>
-          <span>{toastMessage}</span>
-        </div>)}
-
-    </AppLayout>);
+        )}
+      </div>
+    </AppLayout>
+  );
 };
+
 export default Projects;

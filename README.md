@@ -9,6 +9,9 @@
 
 > A modern, academic-first collaboration network that empowers college students to discover compatible peers, organize study groups, share verified course materials, manage project teams, and stay ahead of coursework deadlines.
 
+> [!NOTE]
+> **Current Version**: Frontend prototype built with React + Vite, featuring simulated authentication, responsive multi-device workspaces, persistent accessible dark mode, and comprehensive local mock data. Production backend integration (Node.js, Express, MongoDB Atlas, Socket.IO) is detailed in the [Future Backend Roadmap](#-future-backend-integration-roadmap-mern).
+
 ---
 
 ## 📌 Problem Statement
@@ -25,7 +28,7 @@ In higher education, student collaboration is often fragmented across disjointed
 
 ## ✨ Key Features
 
-### 1. 📊 Intelligent Student Dashboard
+### 1. 📊 Intelligent Student Dashboard (`/dashboard`)
 - **Welcome Hero Section**: Personalized greeting, college department & semester badges, network readiness indicator, and a profile completion progress bar (with direct CTA to `/profile`).
 - **Academic Metrics**: Real-time stats with positive trends tracking peer connections, study group memberships, shared resources, and active projects.
 - **Quick Actions Bar**: Fast-track shortcuts for uploading resources, finding study partners, creating projects, and initiating academic discussions.
@@ -51,6 +54,16 @@ In higher education, student collaboration is often fragmented across disjointed
 
 ### 6. 💬 Academic Discussions & Q&A (`/discussions`)
 - Question-and-answer forum with code snippet highlighting and peer answers.
+
+### 7. 💬 Collaboration & Messaging Workspace (`/messages`)
+- Real-time communication workspace supporting Direct Messages, Study Circles, and Project Team Channels.
+- Context-aware side panel for workspace file attachments, team member directories, and activity audits.
+- Adaptive responsive layout with collapsible drawers for laptops and tablets, and dedicated view navigation on mobile devices.
+
+### 8. 🌓 Persistent, Accessible Dark Mode
+- Centralized theme provider supporting instant pre-paint hydration to prevent white/light-mode flashes.
+- Full contrast compliance, visible focus outlines, and keyboard accessibility (`aria-label`, `aria-pressed`).
+- Auto-syncs with OS `prefers-color-scheme` with persistent `localStorage` (`cohort_theme`) overrides.
 
 ---
 
@@ -79,50 +92,53 @@ In higher education, student collaboration is often fragmented across disjointed
 
 ```text
 Cohort/
-├── public/                     # Static assets and icons
+├── public/                     # Static assets and favicon
 ├── src/
-│   ├── assets/                 # Brand graphics and images
-│   ├── components/
-│   │   ├── layout/             # Persistent AppShell, Sidebar, Topbar/Navbar
-│   │   ├── ui/                 # Reusable UI primitives (Button, Card, Avatar, Progress)
-│   │   ├── peer-match/         # Peer matching components
-│   │   ├── profile/            # Student profile components
-│   │   └── study-groups/       # Study group widgets and session cards
-│   ├── constants/
-│   │   ├── colors.js           # Palette tokens
-│   │   ├── navigation.js       # Sidebar navigation groups and badge items
-│   │   └── routes.js           # Application route definitions
-│   ├── data/                   # Mock databases for peers, groups, resources, projects
-│   ├── features/
-│   │   └── dashboard/          # Feature-sliced Dashboard module
-│   │       ├── components/
-│   │       │   ├── AIAssistantCard.jsx     # AI Copilot preview & prompt chips
-│   │       │   ├── LearningProgress.jsx   # Semantic progress bars for syllabi
-│   │       │   ├── PeerMatches.jsx        # Compatible peer cards with connect action
-│   │       │   ├── QuickActions.jsx       # 4 high-priority workflow shortcuts
-│   │       │   ├── RecentActivity.jsx     # Vertical timeline feed
-│   │       │   ├── RecommendedGroups.jsx  # Study group cards with join action
-│   │       │   ├── StatCard.jsx           # Individual metric card with trend badge
-│   │       │   ├── UpcomingDeadlines.jsx  # Milestone rows with urgency indicators
-│   │       │   └── WelcomeHero.jsx        # Greeting header & profile completion meter
-│   │       ├── dashboard.css               # Warm academic dashboard styling
-│   │       └── dashboardData.js           # API-ready mock state models
-│   ├── lib/
-│   │   └── utils.js            # Tailwind merge and class utility helpers
-│   ├── pages/                  # Page route views
-│   │   ├── DashboardPage.jsx   # Primary dashboard view (orchestrates feature cards)
-│   │   ├── PeerMatch.jsx       # Peer discovery page
-│   │   ├── Profile.jsx         # User academic profile & portfolio
+│   ├── assets/                 # Brand graphics and icons
+│   ├── components/             # Reusable shared & layout components
+│   │   ├── layout/             # Persistent AppShell, Sidebar, Navbar
+│   │   ├── ui/                 # Reusable UI primitives (Button, Card, Avatar, etc.)
+│   │   ├── peer-match/         # Peer matching components & match modals
+│   │   ├── profile/            # Profile widgets & bio editors
+│   │   └── study-groups/       # Study group cards & live session widgets
+│   ├── constants/              # Application routes, navigation schema, color tokens
+│   ├── context/                # Global React contexts
+│   │   ├── AuthContext.jsx     # Safe development authentication & session state
+│   │   ├── ThemeContext.jsx    # Persistent accessible light/dark theme provider
+│   │   └── authStorage.js      # Session helpers (Remember me localStorage/sessionStorage)
+│   ├── data/                   # Feature mock databases (resources, notifications)
+│   ├── features/               # Feature-sliced modular architecture
+│   │   ├── auth/               # Authentication forms, password strength, guards
+│   │   ├── dashboard/          # Dashboard stats, hero, deadlines, syllabus meters
+│   │   ├── discussions/        # Academic forum, Q&A threads, tag filters
+│   │   ├── messages/           # Real-time workspace chat, composer, file & member drawers
+│   │   ├── peer-match/         # Peer matchmaking algorithms & filter controls
+│   │   ├── profile/            # Student academic portfolio, bio, skills editor
+│   │   ├── projects/           # Collaborative project hub, task board, recruitment
+│   │   ├── resources/          # Course notes repository, file uploads, previews
+│   │   └── study-groups/       # Subject circles, live sessions, schedule cards
+│   ├── lib/                    # Shared utilities (Tailwind merge, clsx helpers)
+│   ├── pages/                  # Top-level page routes
+│   │   ├── DashboardPage.jsx   # Primary student dashboard
+│   │   ├── CollaborationWorkspace.jsx # Messages & collaboration workspace
+│   │   ├── PeerMatch.jsx       # Peer discovery & connection engine
+│   │   ├── Profile.jsx         # User academic profile
 │   │   ├── Projects.jsx        # Project collaboration hub
 │   │   ├── Resources.jsx       # Resource repository
-│   │   └── StudyGroups.jsx     # Study group circles
+│   │   ├── StudyGroups.jsx     # Study group circles
+│   │   ├── Discussions.jsx     # Academic Q&A discussions
+│   │   ├── Login.jsx           # Student login
+│   │   ├── Register.jsx        # Student registration
+│   │   ├── ForgotPassword.jsx  # Password recovery
+│   │   └── ResetPassword.jsx   # Password reset
 │   ├── services/
-│   │   └── api.js              # Axios API client with interceptors
-│   ├── App.jsx                 # Route configurations and layout wrapper
-│   ├── index.css               # Global theme tokens, typography, and base resets
+│   │   └── api.js              # Axios HTTP client configured for future backend endpoints
+│   ├── styles/                 # Feature stylesheet backups
+│   ├── App.jsx                 # Route definitions, guards, and theme/auth providers
+│   ├── index.css               # Global CSS tokens, dark mode variables, base typography
 │   └── main.jsx                # React root entry point
-├── package.json                # Dependencies and build scripts
-└── vite.config.js              # Vite configuration
+├── package.json
+└── vite.config.js
 ```
 
 ---
@@ -130,91 +146,202 @@ Cohort/
 ## 🚀 Getting Started
 
 ### Prerequisites
-- **Node.js**: `v18.x` or higher
+- **Node.js**: `v18.x` or higher (`v20+` recommended)
 - **npm**: `v9.x` or higher
+- **MongoDB**: A free [MongoDB Atlas](https://www.mongodb.com/cloud/atlas) cluster connection string or a local MongoDB Community server running on port `27017`.
+
+---
 
 ### Installation & Setup
 
-1. **Clone the repository**:
-   ```bash
-   git clone https://github.com/Shreyas-satish-07/academic-p2p-network.git
-   cd academic-p2p-network
-   ```
-
-2. **Install dependencies**:
-   ```bash
-   npm install
-   ```
-
-3. **Configure Environment Variables** (Optional for frontend development):
-   Create a `.env` file in the root directory:
-   ```env
-   VITE_API_BASE_URL=http://localhost:5000/api
-   ```
-
-4. **Start the local development server**:
-   ```bash
-   npm run dev
-   ```
-   Open [http://localhost:5173](http://localhost:5173) in your browser.
-
-5. **Run Linting**:
-   ```bash
-   npm run lint
-   ```
-
-6. **Build for Production**:
-   ```bash
-   npm run build
-   ```
-   The compiled assets will be output to the `dist/` folder.
-
----
-
-## 📸 Screenshots & UI Preview
-
-| Section | Preview Description |
-| :--- | :--- |
-| **Welcome Hero & Profile Completion** | Forest-green academic hero banner displaying student department, semester, online network pulse, and 75% profile completion meter. |
-| **Academic Stats & Quick Actions** | 4 stat cards with positive trend indicators and 4 prominent workflow cards (Share Resource, Find Peers, Create Project, Ask Questions). |
-| **Deadlines & AI Study Assistant** | Milestone rows with countdowns (`3 days left`, `6 days left`) alongside the Cohort AI Copilot prompt chips. |
-| **Peer Matching & Syllabus Progress** | Top peer match cards with 95% compatibility scores and semantic progress bars for Data Structures, DBMS, OS, and ML. |
-| **Activity Timeline & Study Circles** | Vertical chronological feed and 1-click join cards for subject-focused study groups. |
-
-*(Screenshots will be uploaded here upon final UI preview capture)*
-
----
-
-## 🗺️ Future Backend Integration Roadmap (MERN)
-
-The frontend is built to connect seamlessly to an Express.js and MongoDB backend. All data models in [`dashboardData.js`](file:///c:/MyLearning/AI_Project/Cohort/src/features/dashboard/dashboardData.js) reflect planned MongoDB schemas:
-
-```mermaid
-graph TD
-    Client[React + Vite Frontend] -->|Axios REST / JWT| Express[Express.js Server]
-    Express -->|Mongoose ODM| Mongo[(MongoDB Atlas)]
-    Client <-->|WebSockets| SocketServer[Socket.io Gateway]
-    Express -->|API Keys| GeminiAI[Gemini Study Copilot]
+#### 1. Clone the repository
+```bash
+git clone https://github.com/Shreyas-satish-07/academic-p2p-network.git
+cd academic-p2p-network
 ```
 
-### Planned API Endpoints
-| HTTP Method | Route | Description |
-| :--- | :--- | :--- |
-| `GET` | `/api/dashboard` | Returns consolidated user profile, metrics, deadlines, and activity |
-| `GET` | `/api/peers/top-matches` | Algorithmic peer suggestions based on course overlap |
-| `POST` | `/api/peers/:id/connect` | Sends a peer connection request |
-| `GET` | `/api/study-groups/recommended`| Retrieves recommended study groups for the student |
-| `POST` | `/api/study-groups/:id/join` | Joins a study circle |
-| `GET` | `/api/learning-progress` | Retrieves syllabus tracking percentages |
-| `GET` | `/api/resources` | Queries course resource library with subject filters |
-| `POST` | `/api/resources/upload` | Uploads course notes or reference documents |
+#### 2. Install Frontend Dependencies (Root)
+```bash
+npm install
+```
+
+#### 3. Install Backend Dependencies (Server)
+```bash
+cd server
+npm install
+cd ..
+```
+
+---
+
+### Environment Variables
+
+#### Frontend Configuration (`.env`)
+Create a `.env` file in the project root:
+```env
+VITE_API_BASE_URL=http://localhost:5000/api
+```
+*(Reference template available in [`.env.example`](.env.example))*
+
+#### Backend Configuration (`server/.env`)
+Create a `.env` file inside the `server/` directory:
+```env
+NODE_ENV=development
+PORT=5000
+MONGODB_URI=mongodb+srv://<username>:<password>@<cluster>.mongodb.net/cohort?retryWrites=true&w=majority
+JWT_SECRET=replace_this_with_a_secure_long_random_secret_string
+JWT_EXPIRES_IN=7d
+CLIENT_URL=http://localhost:5173
+```
+*(Reference template available in [`server/.env.example`](server/.env.example). **Never commit real credentials to git!**)*
+
+---
+
+### Running Frontend & Backend (Separate Terminals)
+
+#### Terminal 1 — Backend Express Server
+```bash
+cd server
+npm run dev
+```
+The server will start listening at [http://localhost:5000](http://localhost:5000) and connect to MongoDB.
+
+#### Terminal 2 — Frontend React App
+```bash
+npm run dev
+```
+Open [http://localhost:5173](http://localhost:5173) in your browser.
+
+---
+
+### Testing & Verification Commands
+
+```bash
+# Frontend Linting
+npm run lint
+
+# Frontend Production Build
+npm run build
+```
+
+---
+
+## 🔐 Phase 1 Authentication API
+
+### Endpoints Specification
+
+| HTTP Method | Endpoint | Access | Request Body / Headers | Success Response Format | Description |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| `GET` | `/api/health` | Public | None | `{"success": true, "message": "Cohort API is running"}` | Server liveness & health check |
+| `POST` | `/api/auth/register` | Public | `{ name, email, password, college, department, semester }` | HTTP 201: `{"success": true, "message": "...", "data": {"user": {...}, "token": "..."}}` | Registers new student, hashes password with bcrypt (12 salt rounds), issues JWT |
+| `POST` | `/api/auth/login` | Public | `{ email, password }` | HTTP 200: `{"success": true, "message": "...", "data": {"user": {...}, "token": "..."}}` | Validates credentials, issues JWT and safe user object |
+| `GET` | `/api/auth/me` | Private | `Authorization: Bearer <token>` | HTTP 200: `{"success": true, "message": "...", "data": {"user": {...}, "token": "..."}}` | Retrieves authenticated user profile from verified JWT |
+| `POST` | `/api/auth/logout` | Public | Optional Bearer token | HTTP 200: `{"success": true, "message": "Logged out successfully"}` | Informs server of logout; frontend purges client session tokens |
+
+---
+
+### 🔄 End-to-End JWT Authentication Flow
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor Student as Student Browser
+    participant Context as AuthContext / Axios
+    participant Server as Express Server
+    participant DB as MongoDB Atlas
+
+    Note over Student,Context: 1. Registration & Login
+    Student->>Context: Submit Login / Register credentials
+    Context->>Server: POST /api/auth/login (or /register)
+    Server->>DB: Query user / Hash password with bcrypt (12 rounds)
+    DB-->>Server: User record confirmed
+    Server-->>Context: Return HTTP 200/201 with JWT + Safe User (no password)
+
+    Note over Context,Student: 2. Session Persistence (Remember Me)
+    alt Remember Me Checked
+        Context->>Context: Save to localStorage ('cohort_token', 'cohort_user')
+    else Remember Me Unchecked
+        Context->>Context: Save to sessionStorage ('cohort_token', 'cohort_user')
+    end
+
+    Note over Student,Server: 3. Authenticated Requests
+    Student->>Context: Navigate to Protected Route (/dashboard, /profile)
+    Context->>Server: Axios Interceptor: Authorization: Bearer <token>
+    Server->>Server: authMiddleware verifies JWT signature & expiry
+    Server->>DB: Find user by decoded token ID
+    DB-->>Server: Return user profile
+    Server-->>Context: Return requested data
+
+    Note over Context,Server: 4. Initial Session Hydration & Refresh
+    Student->>Context: Refresh browser page
+    Context->>Server: GET /api/auth/me with Bearer <token>
+    alt Token Valid
+        Server-->>Context: 200 OK + Fresh User Profile
+    else Token Expired or Invalid
+        Server-->>Context: 401 Unauthorized
+        Context->>Context: clearSession() from localStorage & sessionStorage
+        Context->>Student: Redirect to /login
+    end
+```
+
+---
+
+### 🗄️ MongoDB Atlas Setup Guide
+
+1. Sign in to your [MongoDB Atlas account](https://www.mongodb.com/cloud/atlas).
+2. Create a free **M0 Shared Cluster**.
+3. Under **Security → Database Access**, create a database user with Read/Write privileges.
+4. Under **Security → Network Access**, add your current IP address (or `0.0.0.0/0` for development).
+5. Under **Database → Connect → Drivers**, choose **Node.js** and copy the connection string.
+6. Paste the connection string into `server/.env` as `MONGODB_URI` and replace `<password>` with your database user password.
+
+---
+
+### 🧪 Postman & Thunder Client Testing Examples
+
+#### 1. Register Student
+- **Method**: `POST`
+- **URL**: `http://localhost:5000/api/auth/register`
+- **Headers**: `Content-Type: application/json`
+- **Body**:
+```json
+{
+  "name": "Rahul Sharma",
+  "email": "rahul.sharma@example.edu",
+  "password": "StrongPassword123",
+  "college": "Bangalore Institute of Technology",
+  "department": "Computer Science",
+  "semester": "6th Semester"
+}
+```
+
+#### 2. Login
+- **Method**: `POST`
+- **URL**: `http://localhost:5000/api/auth/login`
+- **Headers**: `Content-Type: application/json`
+- **Body**:
+```json
+{
+  "email": "rahul.sharma@example.edu",
+  "password": "StrongPassword123"
+}
+```
+
+#### 3. Current User Profile
+- **Method**: `GET`
+- **URL**: `http://localhost:5000/api/auth/me`
+- **Headers**: `Authorization: Bearer <PASTE_JWT_TOKEN_HERE>`
+
+#### 4. Logout
+- **Method**: `POST`
+- **URL**: `http://localhost:5000/api/auth/logout`
 
 ---
 
 ## 🌐 Deployment
 
-- **Frontend**: Ready for deployment on [Vercel](https://vercel.com/) / [Netlify](https://www.netlify.com/).
-- **Live Demo Link**: `https://cohort-academic.vercel.app` *(Deployment link to be updated upon live release)*
+- **Frontend Deployment**: Deployment: Coming soon (Live production link will be added upon deployment).
+- **Target Platform**: [Vercel](https://vercel.com/) / [Netlify](https://www.netlify.com/) for frontend static delivery; Node.js container hosting for backend API.
 
 ---
 

@@ -1,24 +1,13 @@
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { NAVIGATION_GROUPS } from '../../constants/navigation';
 import { ROUTES } from '../../constants/routes';
+import { useTheme } from '../../context/useTheme';
+
 export const Sidebar = ({ isOpen, onClose }) => {
-    const [isDark, setIsDark] = useState(false);
+    const { isDark, toggleTheme } = useTheme();
     const location = useLocation();
-    useEffect(() => {
-        const isDarkClassPresent = document.documentElement.classList.contains('dark');
-        setIsDark(isDarkClassPresent);
-    }, []);
-    const toggleTheme = () => {
-        const nextDark = !isDark;
-        if (nextDark) {
-            document.documentElement.classList.add('dark');
-        }
-        else {
-            document.documentElement.classList.remove('dark');
-        }
-        setIsDark(nextDark);
-    };
+
     const renderIcon = (iconName) => {
         switch (iconName) {
             case 'Dashboard':
@@ -91,10 +80,17 @@ export const Sidebar = ({ isOpen, onClose }) => {
           </div>))}
 
         <div className="sidebar-foot">
-          <div className="theme-toggle" id="themeToggle" onClick={toggleTheme}>
+          <button
+            type="button"
+            className="theme-toggle"
+            id="themeToggle"
+            onClick={toggleTheme}
+            aria-label={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
+            aria-pressed={isDark}
+          >
             <span id="themeLabel">{isDark ? 'Dark mode' : 'Light mode'}</span>
-            <div className="switch"></div>
-          </div>
+            <div className="switch" aria-hidden="true"></div>
+          </button>
         </div>
       </aside>
     </>);

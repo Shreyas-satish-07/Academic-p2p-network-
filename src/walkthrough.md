@@ -7,14 +7,14 @@ Detailed log of modifications, components, styles, interactions, and responsiven
 ## 1. Collaboration Workspace Refinements
 
 ### Files & Components Modified
-- [`CollaborationWorkspace.tsx`](file:///c:/MyLearning/AI_Project/AI_projects-1/src/pages/CollaborationWorkspace.tsx):
+- [`CollaborationWorkspace.tsx`](src/pages/CollaborationWorkspace.tsx):
   - Refactored `Workspace` interface and the initial workspaces to support `WorkspaceMember[]` (with id, name, department, semester, online status, and initials).
   - Integrated `CURRENT_USER` and `AVAILABLE_STUDENTS` connections.
   - Implemented 4 custom dialog modals for DMs, Study Groups, Project Teams, and Research Discussions.
   - Rewrote the Shared Context member panel layout to show user names, departments, semesters, online badges, and the "+ Add Member" button.
   - Implemented the custom "Add Members" dialog dynamically connected to the workspace state and feed.
   - Added the `handleCloseModal` utility function to clear temporary form inputs, selected member arrays, and search queries when modals are cancelled.
-- [`messages.css`](file:///c:/MyLearning/AI_Project/AI_projects-1/src/styles/messages.css):
+- [`messages.css`](src/styles/messages.css):
   - Appended utility classes for scrollable student lists (`.collab-modal-student-list`), hoverable rows (`.student-select-row`), text sizing, and status circles.
   - Constrained `.collab-modal` dialog height with a viewport-aware `max-height: calc(100vh - 40px)` and enabled vertical `overflow-y: auto`.
 
@@ -27,11 +27,11 @@ Detailed log of modifications, components, styles, interactions, and responsiven
 ## 2. Resources Page Implementation
 
 ### Files & Components Modified
-- [`App.tsx`](file:///c:/MyLearning/AI_Project/AI_projects-1/src/App.tsx): Registered the route mapping for `ROUTES.RESOURCES` to render the newly created `<Resources />` page.
-- [`resource.ts`](file:///c:/MyLearning/AI_Project/AI_projects-1/src/types/resource.ts): Extended `Resource` interface to include `subject`, `uploader`, `description`, and `fileSize` fields.
-- [`resources.ts`](file:///c:/MyLearning/AI_Project/AI_projects-1/src/data/resources.ts): Maintained original mock database, extended objects with subject and connection uploader properties, and added extra resources to support comprehensive searching.
-- [`Resources.tsx`](file:///c:/MyLearning/AI_Project/AI_projects-1/src/pages/Resources.tsx): Created the resource hub layout nested in `AppLayout` with query search inputs, filters, sort buttons, featured spotlight list, file cards grid, and mock upload overlays. Updated mock upload overlays to accept native file picker selections, extract name/size/extension, auto-categorize extensions, validate presence, and display size info on cards.
-- [`resources.css`](file:///c:/MyLearning/AI_Project/AI_projects-1/src/styles/resources.css): Added styled classes for searching widgets, category filter pills, sort controls, spotlights, and modal sheets. Appended styles for file triggers, preview labels, and error tags.
+- [`App.tsx`](src/App.tsx): Registered the route mapping for `ROUTES.RESOURCES` to render the newly created `<Resources />` page.
+- [`resource.ts`](src/types/resource.ts): Extended `Resource` interface to include `subject`, `uploader`, `description`, and `fileSize` fields.
+- [`resources.ts`](src/data/resources.ts): Maintained original mock database, extended objects with subject and connection uploader properties, and added extra resources to support comprehensive searching.
+- [`Resources.tsx`](src/pages/Resources.tsx): Created the resource hub layout nested in `AppLayout` with query search inputs, filters, sort buttons, featured spotlight list, file cards grid, and mock upload overlays. Updated mock upload overlays to accept native file picker selections, extract name/size/extension, auto-categorize extensions, validate presence, and display size info on cards.
+- [`resources.css`](src/styles/resources.css): Added styled classes for searching widgets, category filter pills, sort controls, spotlights, and modal sheets. Appended styles for file triggers, preview labels, and error tags.
 
 ### CSS Selectors Added/Changed
 - `.resources-container`, `.resources-header-section`, `.resources-desc-text`
@@ -71,11 +71,11 @@ Detailed log of modifications, components, styles, interactions, and responsiven
 ## 3. Projects Page Implementation & Refinements
 
 ### Files & Components Modified
-- [`App.tsx`](file:///c:/MyLearning/AI_Project/AI_projects-1/src/App.tsx): Registered the route mapping for `ROUTES.PROJECTS` to render the newly created `<Projects />` page.
-- [`project.ts`](file:///c:/MyLearning/AI_Project/AI_projects-1/src/types/project.ts): Added the structured `ProjectMember`, `ProjectTask`, and `ProjectActivityItem` interfaces. Extended the `Project` type parameters with additional optional descriptors (such as `uploader`, `membersCount`, `neededSkills`, `recruitmentStatus`, `completedTasks`, `totalTasks`, `deadline`, `workspaceId`, `tasks`, `resources` list of type `Resource[]`, and `timeline` activity list).
-- [`projectsData.ts`](file:///c:/MyLearning/AI_Project/AI_projects-1/src/data/projectsData.ts): Created mock student database representing user connections and academic projects, populated with interactive task lists, associated `Resource` type items, and activity feeds.
-- [`Projects.tsx`](file:///c:/MyLearning/AI_Project/AI_projects-1/src/pages/Projects.tsx): Created the projects discovery board and detailed sub-views (Overview, Tasks checklist, Resources list, Members stack, Timeline activity logs), integrating interactive checkbox toggling that dynamically re-calculates task counts and updates the main project grid progress bar fills.
-- [`projects.css`](file:///c:/MyLearning/AI_Project/AI_projects-1/src/styles/projects.css): Added styled classes for search fields, filter tabs, spotlight blocks, library grids, task meters, avatars stack, and dialog confirmation cards.
+- [`App.tsx`](src/App.tsx): Registered the route mapping for `ROUTES.PROJECTS` to render the newly created `<Projects />` page.
+- [`project.ts`](src/types/project.ts): Added the structured `ProjectMember`, `ProjectTask`, and `ProjectActivityItem` interfaces. Extended the `Project` type parameters with additional optional descriptors (such as `uploader`, `membersCount`, `neededSkills`, `recruitmentStatus`, `completedTasks`, `totalTasks`, `deadline`, `workspaceId`, `tasks`, `resources` list of type `Resource[]`, and `timeline` activity list).
+- [`projectsData.ts`](src/data/projectsData.ts): Created mock student database representing user connections and academic projects, populated with interactive task lists, associated `Resource` type items, and activity feeds.
+- [`Projects.tsx`](src/pages/Projects.tsx): Created the projects discovery board and detailed sub-views (Overview, Tasks checklist, Resources list, Members stack, Timeline activity logs), integrating interactive checkbox toggling that dynamically re-calculates task counts and updates the main project grid progress bar fills.
+- [`projects.css`](src/styles/projects.css): Added styled classes for search fields, filter tabs, spotlight blocks, library grids, task meters, avatars stack, and dialog confirmation cards.
 
 ### CSS Selectors Added/Changed
 - `.projects-container`, `.projects-header-section`, `.projects-desc-text`
@@ -113,12 +113,12 @@ Detailed log of modifications, components, styles, interactions, and responsiven
 ## 4. Discussions Page Implementation
 
 ### Files & Components Modified
-- [`App.tsx`](file:///c:/MyLearning/AI_Project/AI_projects-1/src/App.tsx): Registered the route mapping for `ROUTES.DISCUSSIONS` to render the newly created `<Discussions />` page.
-- [`discussion.ts`](file:///c:/MyLearning/AI_Project/AI_projects-1/src/types/discussion.ts): Extended the `Discussion` interface with the required fields: `description`, `type`, `subject`, `author` (typed `DiscussionMember`), `tags`, `createdAt`, `replies`, `views`, `answers` (typed `DiscussionAnswer[]`), `projectId`, `workspaceId`, `resourceId`, and `studyGroupId`. Kept original properties `votes`, `commentsCount`, and `category` as optional fields to support dashboard compatibility.
-- [`discussions.ts`](file:///c:/MyLearning/AI_Project/AI_projects-1/src/data/discussions.ts): Refactored the `TRENDING_DISCUSSIONS` exports to dynamically filter from `INITIAL_DISCUSSIONS` in `discussionsData.ts`.
-- [`discussionsData.ts`](file:///c:/MyLearning/AI_Project/AI_projects-1/src/data/discussionsData.ts): Created mock academic discussions dataset linking study groups, projects, resources, and workspaces where appropriate, prefilled with answer lists, like counters, and accepted status flags.
-- [`Discussions.tsx`](file:///c:/MyLearning/AI_Project/AI_projects-1/src/pages/Discussions.tsx): Created the academic discussions board and in-page detail views, supporting upvoting answers, accepting replies on user threads, writing answers locally, and page routing links.
-- [`discussions.css`](file:///c:/MyLearning/AI_Project/AI_projects-1/src/styles/discussions.css): Styled discussions lists, category filters, trending spotlights, details views, and confirmation dialog cards.
+- [`App.tsx`](src/App.tsx): Registered the route mapping for `ROUTES.DISCUSSIONS` to render the newly created `<Discussions />` page.
+- [`discussion.ts`](src/types/discussion.ts): Extended the `Discussion` interface with the required fields: `description`, `type`, `subject`, `author` (typed `DiscussionMember`), `tags`, `createdAt`, `replies`, `views`, `answers` (typed `DiscussionAnswer[]`), `projectId`, `workspaceId`, `resourceId`, and `studyGroupId`. Kept original properties `votes`, `commentsCount`, and `category` as optional fields to support dashboard compatibility.
+- [`discussions.ts`](src/data/discussions.ts): Refactored the `TRENDING_DISCUSSIONS` exports to dynamically filter from `INITIAL_DISCUSSIONS` in `discussionsData.ts`.
+- [`discussionsData.ts`](src/data/discussionsData.ts): Created mock academic discussions dataset linking study groups, projects, resources, and workspaces where appropriate, prefilled with answer lists, like counters, and accepted status flags.
+- [`Discussions.tsx`](src/pages/Discussions.tsx): Created the academic discussions board and in-page detail views, supporting upvoting answers, accepting replies on user threads, writing answers locally, and page routing links.
+- [`discussions.css`](src/styles/discussions.css): Styled discussions lists, category filters, trending spotlights, details views, and confirmation dialog cards.
 
 ### CSS Selectors Added/Changed
 - `.discussions-container`, `.discussions-header-section`, `.discussions-desc-text`

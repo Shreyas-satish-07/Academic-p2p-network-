@@ -1,0 +1,1323 @@
+/* ==========================================================================
+   COHORT STUDENT PROFILE STYLESHEET
+   A warm academic aesthetic featuring forest green navigation, off-white
+   backgrounds, white cards, muted green accents, and amber highlights.
+   ========================================================================== */
+
+.profile-page-container {
+  padding: 24px 28px 60px 28px;
+  max-width: 1360px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+/* ==========================================================================
+   1. Profile Hero Section
+   ========================================================================== */
+.profile-hero-card {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  position: relative;
+  overflow: hidden;
+  transition: background 0.3s ease, border-color 0.3s ease;
+}
+
+.profile-hero-accent-strip {
+  height: 6px;
+  width: 100%;
+  background: linear-gradient(90deg, var(--pine) 0%, #3B7565 60%, var(--marigold) 100%);
+}
+
+.profile-hero-content {
+  padding: 28px 32px;
+  display: flex;
+  align-items: center;
+  gap: 28px;
+  flex-wrap: wrap;
+}
+
+/* CSS-generated Student Avatar with live status dot */
+.profile-hero-avatar {
+  width: 92px;
+  height: 92px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--pine) 0%, var(--pine-dark) 100%);
+  color: #FFFFFF;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  flex-shrink: 0;
+  box-shadow: 0 4px 14px -2px rgba(31, 64, 56, 0.35);
+  border: 3px solid var(--card);
+}
+
+.profile-avatar-initials {
+  font-family: var(--font-fraunces, 'Fraunces', serif);
+  font-size: 34px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.profile-avatar-online-dot {
+  position: absolute;
+  bottom: 2px;
+  right: 4px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #22C55E;
+  border: 2.5px solid var(--card);
+}
+
+.profile-hero-main-info {
+  flex: 1;
+  min-width: 260px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.profile-hero-badges-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.profile-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 3px 10px;
+  border-radius: 9999px;
+}
+
+.profile-badge-role {
+  background: var(--pine-tint);
+  color: var(--pine);
+  border: 1px solid rgba(47, 93, 80, 0.2);
+}
+
+.profile-badge-semester {
+  background: var(--paper);
+  color: var(--ink-soft);
+  border: 1px solid var(--line);
+}
+
+.profile-badge-completion {
+  background: var(--marigold-tint);
+  color: var(--marigold);
+  border: 1px solid rgba(225, 153, 58, 0.25);
+}
+
+.profile-hero-name {
+  font-size: 30px;
+  font-weight: 700;
+  color: var(--ink);
+  line-height: 1.15;
+  letter-spacing: -0.02em;
+}
+
+.profile-hero-details-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+  font-size: 13.5px;
+  color: var(--ink-soft);
+}
+
+.profile-detail-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.profile-detail-icon {
+  color: var(--pine);
+  flex-shrink: 0;
+}
+
+/* Hero Action Buttons */
+.profile-hero-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.profile-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 8px 16px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.18s ease;
+  white-space: nowrap;
+  text-decoration: none;
+}
+
+.profile-btn-primary {
+  background: var(--pine);
+  color: #FFFFFF;
+  border: 1px solid var(--pine);
+  box-shadow: 0 1px 3px rgba(47, 93, 80, 0.2);
+}
+
+.profile-btn-primary:hover {
+  background: var(--pine-dark);
+  border-color: var(--pine-dark);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px -2px rgba(47, 93, 80, 0.3);
+}
+
+.profile-btn-secondary {
+  background: var(--card);
+  border: 1px solid var(--line);
+  color: var(--ink);
+}
+
+.profile-btn-secondary:hover {
+  background: var(--pine-tint);
+  border-color: rgba(47, 93, 80, 0.3);
+  color: var(--pine);
+  transform: translateY(-1px);
+}
+
+.profile-btn-subtle {
+  color: var(--ink-soft);
+}
+
+.profile-btn:focus-visible {
+  outline: 2px solid var(--marigold);
+  outline-offset: 2px;
+}
+
+.coming-soon-pill {
+  font-size: 10px;
+  text-transform: uppercase;
+  font-weight: 700;
+  background: var(--paper);
+  color: var(--ink-faint);
+  padding: 1px 5px;
+  border-radius: 4px;
+}
+
+/* ==========================================================================
+   2. Main Layout Grid (2 Columns: Primary Details + Side Cards)
+   ========================================================================== */
+.profile-main-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.45fr) minmax(0, 1fr);
+  gap: 20px;
+  align-items: start;
+  width: 100%;
+  min-width: 0;
+}
+
+.profile-column {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  min-width: 0;
+  width: 100%;
+}
+
+/* Reusable Profile Card */
+.profile-card {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 22px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  position: relative;
+  transition: border-color 0.2s ease;
+  min-width: 0;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.profile-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+.profile-card-title-group {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.profile-card-icon-badge {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background: var(--pine-tint);
+  color: var(--pine);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.profile-card-title {
+  font-size: 16.5px;
+  font-weight: 600;
+  color: var(--ink);
+  line-height: 1.25;
+}
+
+.profile-card-subtitle {
+  font-size: 12.5px;
+  color: var(--ink-soft);
+  margin-top: 1px;
+}
+
+.profile-card-action-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+  font-weight: 600;
+  background: var(--card);
+  border: 1px solid var(--line);
+  color: var(--pine);
+  padding: 4px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.profile-card-action-btn:hover {
+  background: var(--pine-tint);
+  border-color: rgba(47, 93, 80, 0.3);
+}
+
+.profile-card-action-btn:focus-visible {
+  outline: 2px solid var(--pine);
+  outline-offset: 1px;
+}
+
+.profile-card-note {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--ink-soft);
+  background: var(--paper);
+  border: 1px solid var(--line);
+  padding: 8px 12px;
+  border-radius: 8px;
+  line-height: 1.4;
+}
+
+/* ==========================================================================
+   3. Profile Completion Card
+   ========================================================================== */
+.profile-completion-pct-tag {
+  font-family: var(--font-fraunces, 'Fraunces', serif);
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--pine);
+}
+
+.profile-completion-bar-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.profile-completion-track {
+  width: 100%;
+  height: 8px;
+  background: var(--paper);
+  border-radius: 9999px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+}
+
+.profile-completion-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--pine) 0%, var(--marigold) 100%);
+  border-radius: 9999px;
+  transition: width 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.profile-completion-note {
+  font-size: 12px;
+  color: var(--ink-soft);
+  line-height: 1.45;
+}
+
+.profile-checklist {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.checklist-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+  padding: 7px 10px;
+  border-radius: 8px;
+  transition: background 0.15s ease;
+}
+
+.checklist-item-done {
+  background: var(--pine-tint);
+  color: var(--ink);
+}
+
+.checklist-item-pending {
+  background: var(--paper);
+  color: var(--ink-soft);
+}
+
+.checklist-icon-done {
+  color: var(--pine);
+  flex-shrink: 0;
+}
+
+.checklist-icon-pending {
+  color: var(--ink-faint);
+  flex-shrink: 0;
+}
+
+.profile-complete-cta-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  background: var(--pine);
+  color: #FFFFFF;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 9px 16px;
+  border-radius: 8px;
+  border: none;
+  cursor: pointer;
+  transition: all 0.18s ease;
+  box-shadow: 0 1px 3px rgba(47, 93, 80, 0.2);
+}
+
+.profile-complete-cta-btn:hover {
+  background: var(--pine-dark);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 10px -2px rgba(47, 93, 80, 0.3);
+}
+
+.profile-complete-cta-btn:focus-visible {
+  outline: 2px solid var(--marigold);
+  outline-offset: 2px;
+}
+
+/* ==========================================================================
+   4. About Card & Social Links
+   ========================================================================== */
+.about-bio-wrap {
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 14px 16px;
+}
+
+.about-bio-text {
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--ink);
+}
+
+.about-links-section {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.about-links-label {
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--ink-faint);
+}
+
+.about-links-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.about-link-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--card);
+  border: 1px solid var(--line);
+  padding: 7px 12px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--ink);
+  text-decoration: none;
+  transition: all 0.15s ease;
+}
+
+.about-link-pill:hover {
+  background: var(--pine-tint);
+  border-color: rgba(47, 93, 80, 0.35);
+  color: var(--pine);
+  transform: translateY(-1px);
+}
+
+.about-link-pill:focus-visible {
+  outline: 2px solid var(--pine);
+  outline-offset: 1px;
+}
+
+.about-link-icon {
+  color: var(--pine);
+}
+
+.about-external-icon {
+  color: var(--ink-faint);
+  margin-left: 2px;
+}
+
+/* ==========================================================================
+   5. Academic Information Card
+   ========================================================================== */
+.academic-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+  width: 100%;
+  min-width: 0;
+}
+
+.academic-info-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px 14px;
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+}
+
+.academic-item-icon {
+  color: var(--pine);
+  margin-top: 2px;
+  flex-shrink: 0;
+}
+
+.academic-item-content {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.academic-item-label {
+  font-size: 11.5px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--ink-faint);
+}
+
+.academic-item-value {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--ink);
+  line-height: 1.35;
+}
+
+.academic-focus-callout {
+  background: linear-gradient(135deg, var(--pine-tint) 0%, rgba(251, 235, 211, 0.4) 100%);
+  border: 1px solid rgba(47, 93, 80, 0.2);
+  border-radius: 10px;
+  padding: 12px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.academic-focus-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.academic-focus-label {
+  font-size: 11.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--pine-dark);
+}
+
+.academic-focus-value {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+/* ==========================================================================
+   6. Skills Section
+   ========================================================================== */
+.skills-categories-list {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.skill-category-block {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.skill-category-title {
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--ink-faint);
+}
+
+.skill-chips-wrap {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+
+.skill-badge-chip {
+  background: var(--paper);
+  border: 1px solid var(--line);
+  color: var(--ink);
+  font-size: 12.5px;
+  font-weight: 500;
+  padding: 4px 10px;
+  border-radius: 6px;
+  transition: all 0.15s ease;
+}
+
+.skill-badge-chip:hover {
+  background: var(--pine-tint);
+  border-color: rgba(47, 93, 80, 0.3);
+  color: var(--pine);
+  transform: translateY(-1px);
+}
+
+/* ==========================================================================
+   7. Interests & Collaboration Preferences
+   ========================================================================== */
+.interests-block {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.interests-subtitle {
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--ink-faint);
+}
+
+.interests-chips-wrap {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.interest-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: var(--card);
+  border: 1px solid var(--line);
+  color: var(--ink);
+  font-size: 12.5px;
+  font-weight: 500;
+  padding: 5px 12px;
+  border-radius: 9999px;
+  transition: all 0.15s ease;
+}
+
+.interest-chip:hover {
+  background: var(--marigold-tint);
+  border-color: rgba(225, 153, 58, 0.35);
+  color: var(--marigold);
+  transform: translateY(-1px);
+}
+
+.interest-chip-icon {
+  color: var(--marigold);
+}
+
+.collaboration-prefs-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  width: 100%;
+  min-width: 0;
+}
+
+.pref-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px 14px;
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+}
+
+.pref-icon-wrap {
+  color: var(--pine);
+  margin-top: 2px;
+  flex-shrink: 0;
+}
+
+.pref-content {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.pref-label {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--ink-faint);
+}
+
+.pref-value {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.pref-tags-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-top: 2px;
+}
+
+.pref-sub-tag {
+  font-size: 11.5px;
+  font-weight: 500;
+  background: var(--card);
+  border: 1px solid var(--line);
+  color: var(--ink-soft);
+  padding: 2px 7px;
+  border-radius: 4px;
+}
+
+/* ==========================================================================
+   8. Availability Card
+   ========================================================================== */
+.availability-status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11.5px;
+  font-weight: 600;
+  padding: 3px 10px;
+  border-radius: 9999px;
+}
+
+.status-pill-available {
+  background: var(--pine-tint);
+  color: var(--pine);
+  border: 1px solid rgba(47, 93, 80, 0.25);
+}
+
+.status-pill-busy {
+  background: var(--paper);
+  color: var(--ink-faint);
+}
+
+.availability-pulse-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background-color: var(--pine);
+  animation: pulse-ring 2s infinite ease-in-out;
+}
+
+.availability-hours-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.availability-slot-card {
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.slot-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.slot-icon {
+  color: var(--pine);
+}
+
+.slot-day-label {
+  font-size: 11.5px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--ink-faint);
+}
+
+.slot-time-value {
+  font-size: 14.5px;
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.slot-subtext {
+  font-size: 11.5px;
+  color: var(--ink-soft);
+}
+
+.availability-sync-note {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--ink-soft);
+}
+
+/* ==========================================================================
+   9. Achievements Card
+   ========================================================================== */
+.achievements-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
+  width: 100%;
+  min-width: 0;
+}
+
+.achievement-item-card {
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 12px 14px;
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  transition: transform 0.15s ease, border-color 0.15s ease;
+}
+
+.achievement-item-card:hover {
+  transform: translateY(-1px);
+  border-color: rgba(47, 93, 80, 0.3);
+  background: var(--card);
+}
+
+.achievement-icon-box {
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+  background: var(--pine-tint);
+  color: var(--pine);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.achievement-content {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.achievement-metric-row {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.achievement-metric {
+  font-family: var(--font-fraunces, 'Fraunces', serif);
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--ink);
+  line-height: 1;
+}
+
+.achievement-category-tag {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  color: var(--marigold);
+  letter-spacing: 0.04em;
+}
+
+.achievement-title {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--ink);
+  line-height: 1.3;
+  word-break: break-word;
+}
+
+.achievement-desc {
+  font-size: 12px;
+  color: var(--ink-soft);
+  line-height: 1.45;
+  margin-top: 1px;
+  word-break: break-word;
+}
+
+/* ==========================================================================
+   10. Recent Activity Timeline
+   ========================================================================== */
+.profile-timeline-wrap {
+  display: flex;
+  flex-direction: column;
+}
+
+.profile-timeline-item {
+  display: flex;
+  gap: 14px;
+  position: relative;
+}
+
+.profile-timeline-spine {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 28px;
+  flex-shrink: 0;
+}
+
+.profile-timeline-icon-wrap {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--line);
+  z-index: 1;
+}
+
+.timeline-icon-skill {
+  background: var(--marigold-tint);
+  color: var(--marigold);
+}
+
+.timeline-icon-group {
+  background: var(--pine-tint);
+  color: var(--pine);
+}
+
+.timeline-icon-resource {
+  background: var(--slate-tint);
+  color: var(--slate);
+}
+
+.timeline-icon-project {
+  background: var(--pine-tint);
+  color: var(--pine);
+}
+
+.timeline-icon-generic {
+  background: var(--paper);
+  color: var(--ink-soft);
+}
+
+.profile-timeline-line {
+  width: 2px;
+  flex: 1;
+  background: var(--line);
+  min-height: 22px;
+  margin: 3px 0;
+}
+
+.profile-timeline-content {
+  padding-bottom: 16px;
+  flex: 1;
+  min-width: 0;
+}
+
+.profile-timeline-msg {
+  font-size: 13.5px;
+  color: var(--ink);
+  font-weight: 500;
+  line-height: 1.4;
+}
+
+.profile-timeline-time {
+  display: block;
+  font-size: 11.5px;
+  color: var(--ink-faint);
+  margin-top: 2px;
+}
+
+/* ==========================================================================
+   11. Edit Profile Modal
+   ========================================================================== */
+.profile-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(18, 24, 26, 0.6);
+  backdrop-filter: blur(4px);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.profile-modal-container {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: 0 20px 45px -10px rgba(0, 0, 0, 0.4);
+  width: 100%;
+  max-width: 620px;
+  max-height: 88vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  animation: modal-enter 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes modal-enter {
+  from { opacity: 0; transform: scale(0.96) translateY(8px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+.profile-modal-header {
+  padding: 20px 24px;
+  border-bottom: 1px solid var(--line);
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+}
+
+.profile-modal-title {
+  font-family: var(--font-fraunces, 'Fraunces', serif);
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--ink);
+  line-height: 1.25;
+}
+
+.profile-modal-subtitle {
+  font-size: 12.5px;
+  color: var(--ink-soft);
+  margin-top: 3px;
+}
+
+.modal-close-btn {
+  background: none;
+  border: none;
+  color: var(--ink-soft);
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+}
+
+.modal-close-btn:hover {
+  background: var(--paper);
+  color: var(--ink);
+}
+
+.profile-modal-form {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
+.profile-modal-scrollable {
+  padding: 20px 24px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.modal-form-section {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.modal-section-heading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--pine);
+  border-bottom: 1px solid var(--line);
+  padding-bottom: 6px;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.form-row-2col {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.form-label {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.label-hint {
+  font-size: 11px;
+  font-weight: 400;
+  color: var(--ink-faint);
+}
+
+.form-input,
+.form-textarea {
+  width: 100%;
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 9px 12px;
+  font-size: 13.5px;
+  font-family: inherit;
+  color: var(--ink);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.form-input:focus,
+.form-textarea:focus {
+  outline: none;
+  border-color: var(--pine);
+  box-shadow: 0 0 0 3px rgba(47, 93, 80, 0.15);
+}
+
+.profile-modal-actions {
+  padding: 16px 24px;
+  border-top: 1px solid var(--line);
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  background: var(--card);
+}
+
+.modal-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 9px 18px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.modal-btn-secondary {
+  background: var(--paper);
+  border: 1px solid var(--line);
+  color: var(--ink);
+}
+
+.modal-btn-secondary:hover {
+  background: var(--card);
+  border-color: var(--ink-soft);
+}
+
+.modal-btn-primary {
+  background: var(--pine);
+  border: 1px solid var(--pine);
+  color: #FFFFFF;
+}
+
+.modal-btn-primary:hover {
+  background: var(--pine-dark);
+  border-color: var(--pine-dark);
+}
+
+.modal-btn:focus-visible {
+  outline: 2px solid var(--marigold);
+  outline-offset: 2px;
+}
+
+/* ==========================================================================
+   12. Toast Notification
+   ========================================================================== */
+.profile-toast {
+  position: fixed;
+  bottom: 28px;
+  right: 28px;
+  background: var(--ink);
+  color: var(--paper);
+  padding: 12px 18px;
+  border-radius: 10px;
+  font-size: 13.5px;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3);
+  z-index: 1100;
+  animation: toast-slide-in 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+@keyframes toast-slide-in {
+  from { opacity: 0; transform: translateY(16px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.toast-icon {
+  color: #22C55E;
+}
+
+/* ==========================================================================
+   13. Responsive Breakpoints
+   ========================================================================== */
+
+/* Medium Tablets & Small Desktops */
+@media (max-width: 1024px) {
+  .profile-main-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .profile-hero-content {
+    gap: 20px;
+  }
+}
+
+@media (min-width: 700px) and (max-width: 1024px) {
+  .achievements-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+/* Tablets & Mobile */
+@media (max-width: 768px) {
+  .profile-page-container {
+    padding: 16px 14px 40px 14px;
+    gap: 18px;
+  }
+
+  .profile-hero-content {
+    padding: 20px;
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .profile-hero-name {
+    font-size: 26px;
+  }
+
+  .profile-hero-actions {
+    width: 100%;
+  }
+
+  .profile-btn {
+    flex: 1;
+  }
+
+  .academic-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .collaboration-prefs-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .achievements-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .form-row-2col {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Small Mobile */
+@media (max-width: 480px) {
+  .profile-hero-avatar {
+    width: 76px;
+    height: 76px;
+  }
+
+  .profile-avatar-initials {
+    font-size: 28px;
+  }
+
+  .profile-hero-actions {
+    flex-direction: column;
+    width: 100%;
+  }
+
+  .profile-btn {
+    width: 100%;
+  }
+
+  .about-links-grid {
+    flex-direction: column;
+  }
+
+  .about-link-pill {
+    width: 100%;
+  }
+}

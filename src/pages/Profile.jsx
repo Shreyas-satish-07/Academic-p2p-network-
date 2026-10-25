@@ -1,165 +1,143 @@
-import React, { useState } from 'react';
-import { motion } from 'framer-motion';
+import React, { useState, useEffect } from 'react';
+import { CheckCircle2 } from 'lucide-react';
 import AppLayout from '../components/layout/AppLayout';
-import ProfileHero from '../components/profile/ProfileHero';
-import AboutCard from '../components/profile/AboutCard';
-import AcademicInfo from '../components/profile/AcademicInfo';
-import SkillsSection from '../components/profile/SkillsSection';
-import PeerNetwork from '../components/profile/PeerNetwork';
-import Certifications from '../components/profile/Certifications';
-import ProjectPortfolio from '../components/profile/ProjectPortfolio';
-import ResourceContributions from '../components/profile/ResourceContributions';
-import Achievements from '../components/profile/Achievements';
-import ActivityTimeline from '../components/profile/ActivityTimeline';
-import ProfileCompletion from '../components/profile/ProfileCompletion';
-import Button from '../components/ui/button';
-import { PROFILE_DATA, PROJECTS, CERTIFICATIONS, RESOURCES, ACHIEVEMENTS, PEERS, PROFILE_COMPLETION, SOCIAL_LINKS, ACTIVITIES, PROFILE_STATS, ACADEMIC_BATCH, } from '../data/profileData';
-import '../styles/profile.css';
-import '../styles/messages.css';
+import ProfileHero from '../features/profile/components/ProfileHero';
+import ProfileCompletion from '../features/profile/components/ProfileCompletion';
+import AboutCard from '../features/profile/components/AboutCard';
+import AcademicInfo from '../features/profile/components/AcademicInfo';
+import SkillsSection from '../features/profile/components/SkillsSection';
+import InterestsSection from '../features/profile/components/InterestsSection';
+import AvailabilityCard from '../features/profile/components/AvailabilityCard';
+import AchievementsCard from '../features/profile/components/AchievementsCard';
+import RecentActivity from '../features/profile/components/RecentActivity';
+import EditProfileModal from '../features/profile/components/EditProfileModal';
+
+import {
+  INITIAL_PROFILE_DATA,
+  RECENT_PROFILE_ACTIVITIES,
+} from '../features/profile/profileData';
+
+import '../features/profile/profile.css';
+
+/**
+ * Profile page component
+ * Renders the comprehensive student academic and collaboration profile on Cohort.
+ * 
+ * Future Backend Architecture (Express + MongoDB):
+ * - GET  /api/users/me          -> Fetch authenticated student profile
+ * - PUT  /api/users/me          -> Update personal details, bio, skills, availability
+ * - POST /api/users/me/avatar   -> Upload custom profile image
+ * - GET  /api/users/me/activity -> Fetch recent activity stream
+ */
 export const Profile = () => {
-    const [profile, setProfile] = useState({
-        name: PROFILE_DATA.name,
-        department: PROFILE_DATA.department,
-        semester: PROFILE_DATA.semester,
-        college: PROFILE_DATA.college,
-        cgpa: PROFILE_DATA.cgpa,
-        biography: PROFILE_DATA.biography,
-        careerGoals: PROFILE_DATA.careerGoals,
-        researchInterests: PROFILE_DATA.researchInterests,
-        academicInterests: PROFILE_DATA.academicInterests,
-        skills: PROFILE_DATA.skills,
-        headline: 'Aspiring full-stack developer · Building things students actually use',
-    });
-    const [showEditModal, setShowEditModal] = useState(false);
-    const [toastMessage, setToastMessage] = useState(null);
-    // Edit fields temp state
-    const [editHeadline, setEditHeadline] = useState('');
-    const [editBiography, setEditBiography] = useState('');
-    const [editCareerGoals, setEditCareerGoals] = useState('');
-    const [editResearchInterests, setEditResearchInterests] = useState('');
-    const [editAcademicInterests, setEditAcademicInterests] = useState('');
-    const [editSkills, setEditSkills] = useState('');
-    const showToast = (msg) => {
-        setToastMessage(msg);
-        setTimeout(() => {
-            setToastMessage(null);
-        }, 3000);
-    };
-    const handleOpenEditModal = () => {
-        setEditHeadline(profile.headline);
-        setEditBiography(profile.biography);
-        setEditCareerGoals(profile.careerGoals);
-        setEditResearchInterests(profile.researchInterests);
-        setEditAcademicInterests(profile.academicInterests);
-        setEditSkills(profile.skills.join(', '));
-        setShowEditModal(true);
-    };
-    const handleSaveProfile = (e) => {
-        e.preventDefault();
-        setProfile(prev => ({
-            ...prev,
-            headline: editHeadline,
-            biography: editBiography,
-            careerGoals: editCareerGoals,
-            researchInterests: editResearchInterests,
-            academicInterests: editAcademicInterests,
-            skills: editSkills.split(',').map(s => s.trim()).filter(Boolean),
-        }));
-        setShowEditModal(false);
-        showToast('Profile updated successfully');
-    };
-    return (<AppLayout>
-      <motion.div className="profile-grid w-full" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, ease: 'easeOut' }}>
-        <div className="col-stack">
-          {/* 1. Profile Hero */}
-          <ProfileHero name={profile.name} headline={profile.headline} department="CSE" semester="Sem 1" college={profile.college} avatar="SR" statistics={PROFILE_STATS} socialLinks={SOCIAL_LINKS} onEditClick={handleOpenEditModal} onShowToast={showToast}/>
+  // Profile and activity state initialized with structured mock data
+  const [profile, setProfile] = useState(INITIAL_PROFILE_DATA);
+  const [activities, _setActivities] = useState(RECENT_PROFILE_ACTIVITIES);
 
-          <div className="profile-columns-layout">
-            <div className="profile-left-col">
-              {/* 2. About Me */}
-              <AboutCard biography={profile.biography} careerGoals={profile.careerGoals} researchInterests={profile.researchInterests} academicInterests={profile.academicInterests}/>
+  // Modal and toast states
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [toastMessage, setToastMessage] = useState(null);
 
-              {/* 4. Skills */}
-              <SkillsSection skills={profile.skills}/>
+  // Loading and error states prepared for future Axios requests
+  const [_isLoading, _setIsLoading] = useState(false);
+  const [errorMessage, _setErrorMessage] = useState(null);
 
-              {/* 7. Project Portfolio */}
-              <ProjectPortfolio projects={PROJECTS} onShowToast={showToast}/>
+  useEffect(() => {
+    /**
+     * Future API Integration:
+     * const fetchProfileData = async () => {
+     *   try {
+     *     _setIsLoading(true);
+     *     const [profileRes, activityRes] = await Promise.all([
+     *       api.get('/users/me'),
+     *       api.get('/users/me/activity'),
+     *     ]);
+     *     setProfile(profileRes.data);
+     *     _setActivities(activityRes.data);
+     *   } catch (err) {
+     *     console.error('Failed to load profile data:', err);
+     *     _setErrorMessage('Could not sync live profile. Showing cached view.');
+     *   } finally {
+     *     _setIsLoading(false);
+     *   }
+     * };
+     * 
+     * fetchProfileData();
+     */
+  }, []);
 
-              {/* 8. Resource Contributions */}
-              <ResourceContributions resources={RESOURCES}/>
+  const showToast = (message) => {
+    setToastMessage(message);
+    setTimeout(() => {
+      setToastMessage(null);
+    }, 3500);
+  };
 
-              {/* 10. Activity Timeline */}
-              <ActivityTimeline activities={ACTIVITIES}/>
-            </div>
+  const handleSaveProfile = (updatedProfile) => {
+    setProfile(updatedProfile);
+    showToast('Profile updated successfully!');
+  };
 
-            <div className="profile-right-col">
-              {/* 3. Academic Information */}
-              <AcademicInfo department={profile.department} semester={profile.semester} cgpa={profile.cgpa} batch={ACADEMIC_BATCH} college={profile.college}/>
+  return (
+    <AppLayout>
+      <div className="profile-page-container">
+        {errorMessage && (
+          <div className="announce" role="alert" style={{ marginBottom: '16px' }}>
+            <span className="tag">NOTICE</span>
+            <span>{errorMessage}</span>
+          </div>
+        )}
 
-              {/* 5. Peer Network */}
-              <PeerNetwork peers={PEERS} onShowToast={showToast}/>
+        {/* 1. Profile Hero Section */}
+        <ProfileHero
+          profile={profile}
+          onEditClick={() => setIsEditModalOpen(true)}
+          onShowToast={showToast}
+        />
 
-              {/* 6. Certifications */}
-              <Certifications certifications={CERTIFICATIONS}/>
+        {/* Main Content Grid: Balanced 2-Column Responsive Layout */}
+        <div className="profile-main-grid">
+          {/* Primary Column: Personal Statement, Academics, Skills, Interests */}
+          <div className="profile-column">
+            <AboutCard profile={profile} />
+            <AcademicInfo profile={profile} />
+            <SkillsSection
+              profile={profile}
+              onAddSkillClick={() => setIsEditModalOpen(true)}
+            />
+            <InterestsSection profile={profile} />
+          </div>
 
-              {/* 9. Achievements */}
-              <Achievements achievements={ACHIEVEMENTS}/>
-
-              {/* 11. Profile Completion */}
-              <ProfileCompletion percentage={PROFILE_COMPLETION.percentage} items={PROFILE_COMPLETION.items}/>
-            </div>
+          {/* Secondary Column: Strength, Availability, Milestones, Activity */}
+          <div className="profile-column">
+            <ProfileCompletion
+              completionData={profile.profileCompletion}
+              onCompleteClick={() => setIsEditModalOpen(true)}
+            />
+            <AvailabilityCard availability={profile.availability} />
+            <AchievementsCard achievements={profile.achievements} />
+            <RecentActivity activities={activities} />
           </div>
         </div>
-      </motion.div>
 
-      {/* Edit Profile Modal */}
-      {showEditModal && (<div className="collab-modal-overlay" onClick={() => setShowEditModal(false)}>
-          <div className="collab-modal" onClick={(e) => e.stopPropagation()}>
-            <h3 className="collab-modal-title">Edit Profile Details</h3>
-            <form onSubmit={handleSaveProfile} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-              <div className="collab-modal-field">
-                <label className="collab-modal-label" htmlFor="edit-headline">Headline</label>
-                <input id="edit-headline" type="text" className="collab-modal-input" required value={editHeadline} onChange={(e) => setEditHeadline(e.target.value)}/>
-              </div>
+        {/* Interactive Edit Profile Modal */}
+        <EditProfileModal
+          isOpen={isEditModalOpen}
+          onClose={() => setIsEditModalOpen(false)}
+          initialData={profile}
+          onSaveProfile={handleSaveProfile}
+        />
 
-              <div className="collab-modal-field">
-                <label className="collab-modal-label" htmlFor="edit-bio">Biography (Bio)</label>
-                <textarea id="edit-bio" className="collab-modal-textarea" required value={editBiography} onChange={(e) => setEditBiography(e.target.value)}/>
-              </div>
-
-              <div className="collab-modal-field">
-                <label className="collab-modal-label" htmlFor="edit-goals">Career Goals</label>
-                <textarea id="edit-goals" className="collab-modal-textarea" value={editCareerGoals} onChange={(e) => setEditCareerGoals(e.target.value)}/>
-              </div>
-
-              <div className="collab-modal-field">
-                <label className="collab-modal-label" htmlFor="edit-research">Research Interests</label>
-                <textarea id="edit-research" className="collab-modal-textarea" value={editResearchInterests} onChange={(e) => setEditResearchInterests(e.target.value)}/>
-              </div>
-
-              <div className="collab-modal-field">
-                <label className="collab-modal-label" htmlFor="edit-academic">Academic Interests</label>
-                <textarea id="edit-academic" className="collab-modal-textarea" value={editAcademicInterests} onChange={(e) => setEditAcademicInterests(e.target.value)}/>
-              </div>
-
-              <div className="collab-modal-field">
-                <label className="collab-modal-label" htmlFor="edit-skills">Skills (comma-separated)</label>
-                <input id="edit-skills" type="text" className="collab-modal-input" value={editSkills} onChange={(e) => setEditSkills(e.target.value)}/>
-              </div>
-
-              <div className="collab-modal-actions">
-                <Button className="outline" type="button" onClick={() => setShowEditModal(false)}>Cancel</Button>
-                <Button className="primary" type="submit">Save Changes</Button>
-              </div>
-            </form>
+        {/* Floating Toast Notification */}
+        {toastMessage && (
+          <div className="profile-toast" role="status" aria-live="polite">
+            <CheckCircle2 size={18} className="toast-icon" aria-hidden="true" />
+            <span>{toastMessage}</span>
           </div>
-        </div>)}
-
-      {/* Dynamic Toast alert */}
-      {toastMessage && (<div className="collab-toast">
-          <span>🔔</span>
-          <span>{toastMessage}</span>
-        </div>)}
-    </AppLayout>);
+        )}
+      </div>
+    </AppLayout>
+  );
 };
+
 export default Profile;
