@@ -31,11 +31,13 @@ export const ConversationItem = ({
     return null;
   };
 
+  const convId = conversation.id || conversation._id;
+
   return (
     <button
       type="button"
       className={`conv-item-btn ${isActive ? 'active' : ''}`}
-      onClick={() => onSelect(conversation.id)}
+      onClick={() => onSelect(convId)}
       aria-label={`Open conversation with ${conversation.name}. ${
         conversation.unreadCount > 0 ? `${conversation.unreadCount} unread messages.` : ''
       }`}

@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { X, Download, Bookmark, User, Calendar, FileText, CheckCircle2 } from 'lucide-react';
+import { X, ExternalLink, Bookmark, User, Calendar, FileText, CheckCircle2, Heart } from 'lucide-react';
 
 /**
  * ResourcePreviewModal component
@@ -7,8 +7,8 @@ import { X, Download, Bookmark, User, Calendar, FileText, CheckCircle2 } from 'l
  * Section 7: Resource preview modal
  * Displays:
  * - Document title, metadata, description, tags, uploader
- * - Styled academic placeholder document viewer area (mock pages & summaries)
- * - Download and Save controls
+ * - Styled academic placeholder document viewer area
+ * - External URL link, Download/Open, Like and Save controls
  */
 export const ResourcePreviewModal = ({
   resource,
@@ -16,6 +16,7 @@ export const ResourcePreviewModal = ({
   onClose,
   onDownload,
   onToggleSave,
+  onToggleLike,
 }) => {
   useEffect(() => {
     const handleKeyDown = (e) => {
@@ -33,6 +34,12 @@ export const ResourcePreviewModal = ({
 
   if (!isOpen || !resource) return null;
 
+  const resId = resource.id || resource._id;
+  const tagsList = resource.tags || resource.topics || [];
+  const isSaved = Boolean(resource.isSaved || resource.isSavedByCurrentUser);
+  const isLiked = Boolean(resource.isLikedByCurrentUser);
+  const targetUrl = resource.url || resource.fileUrl;
+
   return (
     <div
       className="res-preview-overlay"
@@ -49,8 +56,13 @@ export const ResourcePreviewModal = ({
         <div className="res-preview-header">
           <div className="min-w-0 pr-4">
             <div className="flex items-center gap-2 mb-1 flex-wrap">
-              <span className="res-type-pill type-pdf">{resource.type}</span>
+              <span className="res-type-pill type-pdf">{resource.type || 'Resource'}</span>
               <span className="res-subject-pill">{resource.subject}</span>
+              {resource.level && (
+                <span className="text-xs px-2 py-0.5 rounded bg-amber-50 text-marigold border border-amber-200 capitalize">
+                  {resource.level}
+                </span>
+              )}
             </div>
             <h2 id="preview-modal-title" className="res-modal-title serif truncate">
               {resource.title}
@@ -85,6 +97,12 @@ export const ResourcePreviewModal = ({
               <FileText size={13} className="text-slate" aria-hidden="true" />
               <span>{resource.fileSize}</span>
             </div>
+
+            <div className="flex items-center gap-2">
+              <span><strong>{resource.viewCount || 0}</strong> views</span>
+              <span>•</span>
+              <span><strong>{resource.likeCount || 0}</strong> likes</span>
+            </div>
           </div>
 
           {/* Description */}
@@ -98,14 +116,16 @@ export const ResourcePreviewModal = ({
           </div>
 
           {/* Tags */}
-          <div className="flex items-center gap-1.5 flex-wrap">
-            <span className="text-xs text-ink-faint mr-1">Tags:</span>
-            {resource.tags.map((tag) => (
-              <span key={tag} className="res-tag-pill">
-                #{tag}
-              </span>
-            ))}
-          </div>
+          {tagsList.length > 0 && (
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <span className="text-xs text-ink-faint mr-1">Tags:</span>
+              {tagsList.map((tag) => (
+                <span key={tag} className="res-tag-pill">
+                  #{tag}
+                </span>
+              ))}
+            </div>
+          )}
 
           {/* Styled Academic Placeholder Document Viewer */}
           <div className="res-preview-doc-mock" aria-label="Document Page 1 Preview">
@@ -126,32 +146,52 @@ export const ResourcePreviewModal = ({
             </div>
 
             <div className="res-preview-mock-notice">
-              <div className="flex items-center gap-2 font-semibold">
+              <div className="flex items-center gap-2 font-semibold text-pine">
                 <CheckCircle2 size={14} />
-                <span>Document verified and ready for download ({resource.fileSize})</span>
+                <span>Resource verified and available</span>
               </div>
-              <p className="text-xs text-ink-soft mt-1 mb-0">
-                Full high-resolution PDF rendering with in-browser page zooming will be enabled upon Cloudinary document delivery integration.
-              </p>
+              {targetUrl && (
+                <p className="text-xs text-ink-soft mt-1 mb-0 break-all">
+                  Source URL: <a href={targetUrl} target="_blank" rel="noopener noreferrer" className="text-pine underline hover:text-pine-dark">{targetUrl}</a>
+                </p>
+              )}
             </div>
           </div>
         </div>
 
         {/* Footer Actions */}
         <div className="res-modal-footer">
-          <button
-            type="button"
-            className={`res-save-toggle-btn ${resource.isSaved ? 'saved-active' : ''}`}
-            onClick={() => onToggleSave(resource.id)}
-            aria-label={resource.isSaved ? `Unsave ${resource.title}` : `Save ${resource.title}`}
-          >
-            <Bookmark
-              size={13}
-              fill={resource.isSaved ? 'currentColor' : 'none'}
-              aria-hidden="true"
-            />
-            <span>{resource.isSaved ? 'Saved in Collection' : 'Save Resource'}</span>
-          </button>
+          <div className="flex items-center gap-2">
+            {onToggleLike && (
+              <button
+                type="button"
+                className={`res-save-toggle-btn ${isLiked ? 'saved-active' : ''}`}
+                onClick={() => onToggleLike(resId)}
+                aria-label={isLiked ? 'Unlike resource' : 'Like resource'}
+              >
+                <Heart
+                  size={13}
+                  fill={isLiked ? 'currentColor' : 'none'}
+                  aria-hidden="true"
+                />
+                <span>{isLiked ? 'Liked' : 'Like'}</span>
+              </button>
+            )}
+
+            <button
+              type="button"
+              className={`res-save-toggle-btn ${isSaved ? 'saved-active' : ''}`}
+              onClick={() => onToggleSave(resId)}
+              aria-label={isSaved ? `Unsave ${resource.title}` : `Save ${resource.title}`}
+            >
+              <Bookmark
+                size={13}
+                fill={isSaved ? 'currentColor' : 'none'}
+                aria-hidden="true"
+              />
+              <span>{isSaved ? 'Saved in Collection' : 'Save Resource'}</span>
+            </button>
+          </div>
 
           <button
             type="button"
@@ -159,10 +199,10 @@ export const ResourcePreviewModal = ({
             onClick={() => {
               onDownload(resource);
             }}
-            aria-label={`Download ${resource.title}`}
+            aria-label={`Open or download ${resource.title}`}
           >
-            <Download size={13} aria-hidden="true" />
-            <span>Download ({resource.fileSize})</span>
+            <ExternalLink size={13} aria-hidden="true" />
+            <span>Open Resource</span>
           </button>
         </div>
       </div>

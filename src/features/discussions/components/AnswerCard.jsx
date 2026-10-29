@@ -11,7 +11,10 @@ export const AnswerCard = ({
   onUpvote,
   onToggleAccept,
   hasUpvoted = false,
+  isDiscussionAuthor = true,
 }) => {
+  const answerId = answer.id || answer._id;
+
   return (
     <article
       className={`answer-card ${isAccepted ? 'accepted' : ''}`}
@@ -21,7 +24,7 @@ export const AnswerCard = ({
       <button
         type="button"
         className={`disc-vote-btn ${hasUpvoted ? 'upvoted' : ''}`}
-        onClick={() => onUpvote(answer.id)}
+        onClick={() => onUpvote(answerId)}
         aria-label={`Upvote answer by ${answer.author}. Currently ${answer.voteCount} votes`}
       >
         <ThumbsUp size={14} aria-hidden="true" />
@@ -33,7 +36,7 @@ export const AnswerCard = ({
         <div className="answer-header-row">
           <div className="disc-author-info">
             <div className="disc-author-avatar" title={answer.author}>
-              {answer.authorInitials || answer.author.substring(0, 2).toUpperCase()}
+              {answer.authorInitials || (typeof answer.author === 'string' ? answer.author.substring(0, 2).toUpperCase() : 'CO')}
             </div>
             <div>
               <span className="disc-author-name">{answer.author}</span>
@@ -52,21 +55,31 @@ export const AnswerCard = ({
         </div>
 
         {/* Answer Content */}
-        <p className="answer-body-text">{answer.body}</p>
+        <p className="answer-body-text">{answer.body || answer.content}</p>
 
-        {/* Action Controls */}
-        <div className="answer-actions-row">
-          <button
-            type="button"
-            className={`answer-accept-btn ${isAccepted ? 'active' : ''}`}
-            onClick={() => onToggleAccept(answer.id)}
-            title={isAccepted ? 'Unmark this as the accepted solution' : 'Mark this answer as the accepted solution'}
-            aria-label={isAccepted ? 'Unmark accepted solution' : 'Mark as accepted solution'}
-          >
-            <Check size={12} aria-hidden="true" />
-            <span>{isAccepted ? 'Accepted Solution' : 'Mark as Accepted'}</span>
-          </button>
-        </div>
+        {/* Action Controls - Visible to discussion author or when already accepted */}
+        {(isDiscussionAuthor || isAccepted) && (
+          <div className="answer-actions-row">
+            <button
+              type="button"
+              className={`answer-accept-btn ${isAccepted ? 'active' : ''}`}
+              onClick={() => isDiscussionAuthor && onToggleAccept(answerId)}
+              disabled={!isDiscussionAuthor}
+              title={
+                !isDiscussionAuthor
+                  ? 'Accepted solution marked by the author'
+                  : isAccepted
+                  ? 'Unmark this as the accepted solution'
+                  : 'Mark this answer as the accepted solution'
+              }
+              aria-label={isAccepted ? 'Accepted solution' : 'Mark as accepted solution'}
+              style={{ cursor: isDiscussionAuthor ? 'pointer' : 'default' }}
+            >
+              <Check size={12} aria-hidden="true" />
+              <span>{isAccepted ? 'Accepted Solution' : 'Mark as Accepted'}</span>
+            </button>
+          </div>
+        )}
       </div>
     </article>
   );

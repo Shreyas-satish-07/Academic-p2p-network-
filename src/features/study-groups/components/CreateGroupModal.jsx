@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { X, Plus, BookOpen, Layers, Users, Calendar, Tag, FileText, Clock } from 'lucide-react';
+import { X, Plus, BookOpen, Layers, Users, Calendar, Tag, FileText, Clock, Loader2 } from 'lucide-react';
 import { SUBJECT_FILTER_OPTIONS, DIFFICULTY_FILTER_OPTIONS } from '../studyGroupsData';
+import { studyGroupApi } from '../../../services/api';
 
 /**
  * CreateGroupModal component
@@ -40,6 +41,7 @@ export const CreateGroupModal = ({
   const [meetingSchedule, setMeetingSchedule] = useState('Wednesdays • 6:00 PM');
   const [firstSession, setFirstSession] = useState('Tomorrow at 6:00 PM');
   const [errorMsg, setErrorMsg] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
     const handleKeyDown = (e) => {
@@ -48,6 +50,7 @@ export const CreateGroupModal = ({
     if (isOpen) {
       window.addEventListener('keydown', handleKeyDown);
       document.body.style.overflow = 'hidden';
+      setErrorMsg('');
     }
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
@@ -57,7 +60,7 @@ export const CreateGroupModal = ({
 
   if (!isOpen) return null;
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
 
     // Validation
@@ -65,12 +68,16 @@ export const CreateGroupModal = ({
       setErrorMsg('Please enter a group name.');
       return;
     }
+    if (name.trim().length < 3 || name.trim().length > 100) {
+      setErrorMsg('Group name must be between 3 and 100 characters.');
+      return;
+    }
     if (!description.trim()) {
       setErrorMsg('Please enter a description for your study group.');
       return;
     }
-    if (maxMembers < 2) {
-      setErrorMsg('A study group must have at least 2 members capacity.');
+    if (maxMembers < 2 || maxMembers > 50) {
+      setErrorMsg('A study group must have capacity between 2 and 50 members.');
       return;
     }
 
@@ -79,51 +86,35 @@ export const CreateGroupModal = ({
       .map((t) => t.trim())
       .filter(Boolean);
 
-    /**
-     * Future Backend API Call:
-     * try {
-     *   const res = await axios.post('/api/study-groups', {
-     *     name, subject, description, difficulty, maxMembers, tags: parsedTags, meetingSchedule, firstSession
-     *   });
-     * } catch (err) { ... }
-     */
+    setIsSubmitting(true);
+    setErrorMsg('');
 
-    const newGroup = {
-      id: `grp-${Date.now()}`,
-      name: name.trim(),
-      subject,
-      description: description.trim(),
-      difficulty,
-      memberCount: 1, // Current user is the initial member
-      maxMembers: Number(maxMembers) || 15,
-      members: [
-        {
-          id: 'user-current',
-          name: 'Shreyas Rao',
-          initials: 'SR',
-          role: 'Owner & Host',
-          isOnline: true,
-        },
-      ],
-      owner: {
-        id: 'user-current',
-        name: 'Shreyas Rao',
-        initials: 'SR',
-        role: 'Host',
-      },
-      tags: parsedTags.length > 0 ? parsedTags : ['Study', subject],
-      meetingSchedule: meetingSchedule.trim() || 'Schedule TBD',
-      nextSession: firstSession.trim() || 'First session date TBD',
-      isLive: false,
-      activityLevel: 'Medium',
-      activeToday: true,
-      joined: true, // Marked as joined member
-      avatarColor: '#2F5D50',
-      recentActivity: 'Shreyas Rao created this study squad • Just now',
-    };
+    try {
+      const res = await studyGroupApi.createGroup({
+        name: name.trim(),
+        subject,
+        description: description.trim(),
+        level: difficulty.toLowerCase(),
+        maxMembers: Number(maxMembers),
+        topics: parsedTags.length > 0 ? parsedTags : ['Study', subject],
+        meetingSchedule: meetingSchedule.trim() || 'Schedule TBD',
+        location: '',
+      });
 
-    onCreateGroup(newGroup);
-    onClose();
+      const createdGroup = res.data?.data?.group;
+      if (createdGroup) {
+        onCreateGroup(createdGroup);
+      }
+      onClose();
+    } catch (err) {
+      console.error('Failed to create study group:', err);
+      const message =
+        err.response?.data?.message ||
+        'Failed to create study squad. Please check your network connection.';
+      setErrorMsg(message);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const validSubjects = SUBJECT_FILTER_OPTIONS.filter((s) => s !== 'All Subjects');
@@ -324,14 +315,26 @@ export const CreateGroupModal = ({
               type="button"
               className="sg-modal-cancel-btn"
               onClick={onClose}
+              disabled={isSubmitting}
             >
               Cancel
             </button>
             <button
               type="submit"
-              className="sg-modal-submit-btn"
+              className="sg-modal-submit-btn flex items-center justify-center gap-2"
+              disabled={isSubmitting}
             >
-              Create Study Group
+              {isSubmitting ? (
+                <>
+                  <Loader2 size={15} className="animate-spin" aria-hidden="true" />
+                  <span>Creating Squad...</span>
+                </>
+              ) : (
+                <>
+                  <Plus size={15} aria-hidden="true" />
+                  <span>Create Study Group</span>
+                </>
+              )}
             </button>
           </div>
         </form>

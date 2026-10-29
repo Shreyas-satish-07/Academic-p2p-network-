@@ -52,7 +52,8 @@ export const DiscussionDetailModal = ({
       return;
     }
     setAnswerError('');
-    onSubmitAnswer(discussion.id, answerBody.trim());
+    const discussionId = discussion.id || discussion._id;
+    onSubmitAnswer(discussionId, answerBody.trim());
     setAnswerBody('');
   };
 
@@ -231,16 +232,21 @@ export const DiscussionDetailModal = ({
                   No answers posted yet. Be the first to share your insights with your peers!
                 </div>
               ) : (
-                sortedAnswers.map((answer) => (
-                  <AnswerCard
-                    key={answer.id}
-                    answer={answer}
-                    isAccepted={answer.isAccepted || discussion.acceptedAnswerId === answer.id}
-                    onUpvote={(ansId) => onUpvoteAnswer(discussion.id, ansId)}
-                    onToggleAccept={(ansId) => onToggleAcceptAnswer(discussion.id, ansId)}
-                    hasUpvoted={Boolean(userUpvotedAnswers[answer.id])}
-                  />
-                ))
+                sortedAnswers.map((answer) => {
+                  const ansId = answer.id || answer._id;
+                  const discussionId = discussion.id || discussion._id;
+                  return (
+                    <AnswerCard
+                      key={ansId}
+                      answer={answer}
+                      isAccepted={answer.isAccepted || discussion.acceptedAnswerId === ansId}
+                      isDiscussionAuthor={Boolean(discussion.isDiscussionAuthor || discussion.isAuthor)}
+                      onUpvote={(targetAnsId) => onUpvoteAnswer(discussionId, targetAnsId)}
+                      onToggleAccept={(targetAnsId) => onToggleAcceptAnswer(discussionId, targetAnsId)}
+                      hasUpvoted={Boolean(userUpvotedAnswers[ansId] || answer.isVotedByCurrentUser)}
+                    />
+                  );
+                })
               )}
             </div>
           </section>

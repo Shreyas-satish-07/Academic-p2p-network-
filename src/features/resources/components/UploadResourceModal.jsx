@@ -1,25 +1,19 @@
 import React, { useState, useEffect } from 'react';
-import { X, Upload, BookOpen, Layers, Tag, FileText, Globe, FileCheck, AlertCircle } from 'lucide-react';
+import { X, Upload, BookOpen, Layers, Tag, FileText, Globe, AlertCircle, Loader2 } from 'lucide-react';
 import { SUBJECT_FILTER_OPTIONS, TYPE_FILTER_OPTIONS } from '../resourcesData';
+import { resourceApi } from '../../../services/api';
 
 /**
  * UploadResourceModal component
- * 
- * Section 6: Upload Resource modal
+ *
+ * Section 6: Upload / Share Resource modal
  * Fields:
  * - Title
  * - Description
  * - Subject
  * - Resource type
+ * - External resource URL (Required in Phase 6 link-sharing; binary storage is coming soon)
  * - Tags
- * - File input (supports PDF, DOCX, PPTX, PNG, JPG)
- * - External resource URL optional
- * 
- * Future Cloudinary Integration:
- * 1. Frontend sends FormData with multipart/form-data to POST /api/uploads/resource
- * 2. Express server streams file stream to Cloudinary storage bucket (raw/image/pdf preset)
- * 3. Cloudinary returns secure_url and public_id
- * 4. Express saves Resource document in MongoDB with fileUrl: secure_url, cloudinaryId: public_id
  */
 export const UploadResourceModal = ({
   isOpen,
@@ -31,9 +25,9 @@ export const UploadResourceModal = ({
   const [subject, setSubject] = useState('DBMS');
   const [type, setType] = useState('PDF');
   const [tagsInput, setTagsInput] = useState('Notes, Semester 6');
-  const [selectedFile, setSelectedFile] = useState(null);
   const [externalUrl, setExternalUrl] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
     const handleKeyDown = (e) => {
@@ -42,6 +36,7 @@ export const UploadResourceModal = ({
     if (isOpen) {
       window.addEventListener('keydown', handleKeyDown);
       document.body.style.overflow = 'hidden';
+      setErrorMsg('');
     }
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
@@ -51,38 +46,12 @@ export const UploadResourceModal = ({
 
   if (!isOpen) return null;
 
-  const validFileTypes = ['pdf', 'docx', 'doc', 'pptx', 'ppt', 'png', 'jpg', 'jpeg'];
-
-  const handleFileChange = (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    const ext = file.name.split('.').pop()?.toLowerCase();
-    if (!ext || !validFileTypes.includes(ext)) {
-      setErrorMsg(`Invalid file type (.${ext}). Accepted formats: PDF, DOCX, PPTX, PNG, JPG.`);
-      setSelectedFile(null);
-      return;
-    }
-
-    setSelectedFile(file);
-    setErrorMsg('');
-
-    // Prepopulate title if empty
-    if (!title.trim()) {
-      setTitle(file.name);
-    }
-  };
-
-  const handleRemoveFile = () => {
-    setSelectedFile(null);
-  };
-
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
 
-    // Validation: Title, Subject, Type, and one of File or URL
-    if (!title.trim()) {
-      setErrorMsg('Please enter a resource title.');
+    // Validation
+    if (!title.trim() || title.trim().length < 3) {
+      setErrorMsg('Please enter a resource title (at least 3 characters).');
       return;
     }
     if (!subject || subject === 'All Subjects') {
@@ -93,18 +62,14 @@ export const UploadResourceModal = ({
       setErrorMsg('Please select a resource type.');
       return;
     }
-    if (!selectedFile && !externalUrl.trim()) {
-      setErrorMsg('Please select a file to upload or provide an external resource URL.');
+    if (!externalUrl.trim()) {
+      setErrorMsg('Please provide a resource URL (Google Drive, GitHub, ArXiv, docs, etc.).');
       return;
     }
-
-    // Format file size string
-    let sizeStr = '1.5 MB';
-    if (selectedFile) {
-      sizeStr =
-        selectedFile.size > 1024 * 1024
-          ? `${(selectedFile.size / (1024 * 1024)).toFixed(1)} MB`
-          : `${(selectedFile.size / 1024).toFixed(0)} KB`;
+    const urlPattern = /^https?:\/\/[^\s$.?#].[^\s]*$/i;
+    if (!urlPattern.test(externalUrl.trim())) {
+      setErrorMsg('Please enter a valid HTTP or HTTPS resource URL.');
+      return;
     }
 
     const parsedTags = tagsInput
@@ -112,38 +77,34 @@ export const UploadResourceModal = ({
       .map((t) => t.trim())
       .filter(Boolean);
 
-    /**
-     * Future Backend API & Cloudinary upload call:
-     * const formData = new FormData();
-     * formData.append('file', selectedFile);
-     * formData.append('title', title);
-     * formData.append('subject', subject);
-     * formData.append('type', type);
-     * formData.append('description', description);
-     * const res = await axios.post('/api/resources', formData, { headers: { 'Content-Type': 'multipart/form-data' } });
-     */
+    setIsSubmitting(true);
+    setErrorMsg('');
 
-    const newResource = {
-      id: `res-${Date.now()}`,
-      title: title.trim(),
-      description: description.trim() || 'Shared by Shreyas Rao for peer learning.',
-      subject,
-      type,
-      tags: parsedTags.length > 0 ? parsedTags : [subject, type],
-      uploader: 'Shreyas Rao',
-      uploaderInitials: 'SR',
-      uploadDate: 'Just now',
-      downloadCount: 0,
-      viewCount: 0,
-      fileSize: sizeStr,
-      fileUrl: externalUrl.trim() || (selectedFile ? `/mock/files/${selectedFile.name}` : '#'),
-      thumbnailColor: '#2F5D50',
-      isSaved: false,
-      isFeatured: false,
-    };
+    try {
+      const res = await resourceApi.createResource({
+        title: title.trim(),
+        description: description.trim() || `Academic material shared for ${subject}.`,
+        subject,
+        resourceType: type.toLowerCase(),
+        type,
+        url: externalUrl.trim(),
+        tags: parsedTags.length > 0 ? parsedTags : [subject, type],
+        level: 'intermediate',
+        visibility: 'public',
+      });
 
-    onUploadResource(newResource);
-    onClose();
+      const created = res.data?.data?.resource;
+      if (created) {
+        onUploadResource(created);
+      }
+      onClose();
+    } catch (err) {
+      console.error('Failed to create resource:', err);
+      const msg = err.response?.data?.message || 'Failed to upload resource. Please check your connection.';
+      setErrorMsg(msg);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const validSubjects = SUBJECT_FILTER_OPTIONS.filter((s) => s !== 'All Subjects');
@@ -166,7 +127,7 @@ export const UploadResourceModal = ({
           <div className="flex items-center gap-2">
             <Upload size={18} className="text-pine" aria-hidden="true" />
             <h2 id="upload-modal-title" className="res-modal-title serif">
-              Upload Academic Resource
+              Share Academic Resource
             </h2>
           </div>
 
@@ -190,72 +151,34 @@ export const UploadResourceModal = ({
 
         {/* Form */}
         <form onSubmit={handleSubmit} className="res-modal-form">
-          {/* File Picker */}
-          <div className="res-form-group">
-            <label className="res-form-label">
-              Upload File (PDF, DOCX, PPTX, PNG, JPG)
-            </label>
-
-            {/* Hidden native input */}
-            <input
-              id="file-picker-input"
-              type="file"
-              style={{ display: 'none' }}
-              accept=".pdf,.docx,.doc,.pptx,.ppt,.png,.jpg,.jpeg"
-              onChange={handleFileChange}
-            />
-
-            {!selectedFile ? (
-              <label htmlFor="file-picker-input" className="res-file-picker-trigger">
-                <Upload size={24} className="text-pine" aria-hidden="true" />
-                <span className="text-sm font-semibold text-ink">
-                  Click to browse or drop document
-                </span>
-                <span className="text-xs text-ink-faint">
-                  Supports PDF, DOCX, PPTX, PNG, JPG up to 25MB
-                </span>
-              </label>
-            ) : (
-              <div className="res-file-selected-box">
-                <div className="flex items-center gap-2.5 min-w-0">
-                  <FileCheck size={18} className="text-pine flex-shrink-0" aria-hidden="true" />
-                  <div className="truncate">
-                    <span className="text-sm font-medium text-ink block truncate">
-                      {selectedFile.name}
-                    </span>
-                    <span className="res-file-meta-text">
-                      {(selectedFile.size / (1024 * 1024)).toFixed(2)} MB
-                    </span>
-                  </div>
-                </div>
-
-                <button
-                  type="button"
-                  className="text-xs font-semibold text-rust hover:underline ml-2"
-                  onClick={handleRemoveFile}
-                >
-                  Change
-                </button>
-              </div>
-            )}
+          {/* Notice for Cloudinary / File uploads coming soon */}
+          <div className="res-file-picker-trigger bg-sage/20 border-dashed border-2 border-pine/30 rounded-lg p-3 text-center cursor-default">
+            <Upload size={20} className="text-pine mx-auto mb-1" aria-hidden="true" />
+            <span className="text-xs font-semibold text-ink block">
+              Direct Binary File Upload (Cloudinary / S3): <strong className="text-pine">Coming Soon</strong>
+            </span>
+            <span className="text-[11px] text-ink-soft block mt-0.5">
+              Phase 6 supports resource metadata and link sharing. Enter your resource link below (Google Drive, GitHub, Notion, YouTube, ArXiv, etc.).
+            </span>
           </div>
 
-          {/* External URL Alternative */}
+          {/* External Resource URL */}
           <div className="res-form-group">
             <label htmlFor="res-external-url" className="res-form-label flex items-center gap-1.5">
-              <Globe size={13} className="text-slate" aria-hidden="true" />
-              <span>External Resource URL (Optional alternative to file)</span>
+              <Globe size={13} className="text-pine" aria-hidden="true" />
+              <span>Resource URL (Google Drive, GitHub, PDF link, etc.) *</span>
             </label>
             <input
               id="res-external-url"
               type="url"
               className="res-form-input"
-              placeholder="https://drive.google.com/... or https://arxiv.org/..."
+              placeholder="https://drive.google.com/... or https://github.com/..."
               value={externalUrl}
               onChange={(e) => {
                 setExternalUrl(e.target.value);
                 setErrorMsg('');
               }}
+              required
             />
           </div>
 
@@ -357,14 +280,23 @@ export const UploadResourceModal = ({
               type="button"
               className="res-secondary-btn"
               onClick={onClose}
+              disabled={isSubmitting}
             >
               Cancel
             </button>
             <button
               type="submit"
-              className="res-primary-btn"
+              className="res-primary-btn flex items-center justify-center gap-2"
+              disabled={isSubmitting}
             >
-              Upload Resource
+              {isSubmitting ? (
+                <>
+                  <Loader2 size={14} className="animate-spin" aria-hidden="true" />
+                  <span>Sharing Resource...</span>
+                </>
+              ) : (
+                <span>Share Resource</span>
+              )}
             </button>
           </div>
         </form>

@@ -16,7 +16,7 @@ import MatchExplanation from './MatchExplanation';
 /**
  * PeerProfileModal component
  * Comprehensive modal displaying the peer's full profile details:
- * Department, Semester, Year, Bio, Skills, Interests, Availability,
+ * Department, Semester, Bio, Skills, Interests, Availability,
  * Preferred Team Size, Project Goals, Match Score & Reasons, and Connect CTA.
  */
 export const PeerProfileModal = ({
@@ -34,6 +34,32 @@ export const PeerProfileModal = ({
   }, [onClose]);
 
   if (!peer) return null;
+
+  const peerId = peer._id || peer.id;
+  const matchScore = peer.compatibilityScore ?? peer.matchScore ?? 0;
+  const isOnline = peer.isOnline !== undefined ? peer.isOnline : true;
+
+  const formatAvailability = (avail) => {
+    if (!avail) return 'Flexible schedule';
+    if (Array.isArray(avail)) return avail.join(', ');
+    if (typeof avail === 'object') {
+      const parts = [avail.weekdays, avail.weekends].filter(Boolean);
+      if (parts.length > 0) return parts.join(' • ');
+      if (Array.isArray(avail.openTo) && avail.openTo.length > 0) {
+        return avail.openTo.join(', ');
+      }
+    }
+    return String(avail);
+  };
+
+  const displayAvailability = formatAvailability(peer.availability);
+  const preferredTeamSize =
+    peer.preferredTeamSize ||
+    peer.availability?.preferredTeamSize ||
+    '2–4 members';
+
+  const skillsList = Array.isArray(peer.skills) ? peer.skills : [];
+  const interestsList = Array.isArray(peer.interests) ? peer.interests : [];
 
   const renderConnectButton = () => {
     switch (collaborationStatus) {
@@ -78,12 +104,25 @@ export const PeerProfileModal = ({
         <div className="peer-modal-header">
           <div className="peer-modal-header-info">
             <div className="peer-avatar-circle modal-avatar">
-              <span>{peer.initials}</span>
+              {peer.avatar?.url ? (
+                <img
+                  src={peer.avatar.url}
+                  alt={peer.name}
+                  style={{
+                    width: '100%',
+                    height: '100%',
+                    borderRadius: '50%',
+                    objectFit: 'cover',
+                  }}
+                />
+              ) : (
+                <span>{peer.initials || 'ST'}</span>
+              )}
               <span
                 className={`peer-status-indicator ${
-                  peer.isOnline ? 'indicator-online' : 'indicator-away'
+                  isOnline ? 'indicator-online' : 'indicator-away'
                 }`}
-                aria-label={peer.isOnline ? 'Online now' : 'Away'}
+                aria-label={isOnline ? 'Online now' : 'Away'}
               />
             </div>
             <div>
@@ -93,16 +132,16 @@ export const PeerProfileModal = ({
                 </h2>
                 <div className="peer-score-badge score-grade-excellent">
                   <Sparkles size={11} aria-hidden="true" />
-                  <span>{peer.matchScore}% Match</span>
+                  <span>{matchScore}% Match</span>
                 </div>
               </div>
               <p className="peer-modal-academic">
                 <GraduationCap size={13} className="text-pine inline-icon" aria-hidden="true" />
                 <span>
-                  {peer.department} • Semester {peer.semester} (Year {peer.year})
+                  {peer.department} • Semester {peer.semester}
                 </span>
                 <span className="peer-modal-status-tag">
-                  {peer.isOnline ? 'Active Online' : 'Away'}
+                  {isOnline ? 'Active Online' : 'Away'}
                 </span>
               </p>
             </div>
@@ -123,7 +162,7 @@ export const PeerProfileModal = ({
           {/* Bio */}
           <div className="peer-modal-section">
             <h3 className="peer-modal-section-title">About</h3>
-            <p className="peer-modal-bio">{peer.bio}</p>
+            <p className="peer-modal-bio">{peer.bio || 'Eager to collaborate and learn through teamwork.'}</p>
           </div>
 
           {/* Project Goals */}
@@ -142,7 +181,7 @@ export const PeerProfileModal = ({
             <div>
               <h3 className="peer-modal-section-title">Technical Skills</h3>
               <div className="peer-skills-chips">
-                {peer.skills.map((skill) => (
+                {skillsList.map((skill) => (
                   <span key={skill} className="peer-skill-tag tag-standard">
                     {skill}
                   </span>
@@ -156,7 +195,7 @@ export const PeerProfileModal = ({
                 <span>Interests</span>
               </h3>
               <div className="peer-interests-chips">
-                {peer.interests.map((interest) => (
+                {interestsList.map((interest) => (
                   <span key={interest} className="peer-interest-tag">
                     {interest}
                   </span>
@@ -171,7 +210,7 @@ export const PeerProfileModal = ({
               <Calendar size={14} className="text-pine" aria-hidden="true" />
               <div>
                 <span className="meta-label">Availability</span>
-                <span className="meta-value">{peer.availability.join(', ')}</span>
+                <span className="meta-value">{displayAvailability}</span>
               </div>
             </div>
 
@@ -179,7 +218,7 @@ export const PeerProfileModal = ({
               <Users size={14} className="text-pine" aria-hidden="true" />
               <div>
                 <span className="meta-label">Preferred Squad Size</span>
-                <span className="meta-value">{peer.preferredTeamSize}</span>
+                <span className="meta-value">{preferredTeamSize}</span>
               </div>
             </div>
           </div>
@@ -203,7 +242,7 @@ export const PeerProfileModal = ({
           <button
             type="button"
             className={`peer-modal-connect-btn btn-${collaborationStatus}`}
-            onClick={() => onConnect(peer.id)}
+            onClick={() => onConnect(peerId)}
           >
             {renderConnectButton()}
           </button>

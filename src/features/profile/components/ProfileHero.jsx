@@ -12,7 +12,7 @@ import {
 
 /**
  * ProfileHero component
- * Prominent header showcase displaying student avatar initials, academic metadata,
+ * Prominent header showcase displaying student avatar, initials, academic metadata,
  * profile completion status, and primary action controls (Edit, Share, Download Resume).
  */
 export const ProfileHero = ({ profile, onEditClick, onShowToast }) => {
@@ -23,9 +23,16 @@ export const ProfileHero = ({ profile, onEditClick, onShowToast }) => {
     college,
     department,
     semester,
-    location,
+    location = 'Bengaluru, India',
     profileCompletion,
+    avatar,
   } = profile;
+
+  const displayRole = role === 'student' ? 'Student' : role || 'Student';
+  const displaySemester =
+    typeof semester === 'number'
+      ? `Semester ${semester}`
+      : semester || 'Semester 1';
 
   const handleShareProfile = async () => {
     try {
@@ -49,13 +56,26 @@ export const ProfileHero = ({ profile, onEditClick, onShowToast }) => {
       <div className="profile-hero-accent-strip" aria-hidden="true" />
 
       <div className="profile-hero-content">
-        {/* CSS-generated Avatar Badge */}
+        {/* Student Avatar: Shows image if present, otherwise stylized initials */}
         <div
           className="profile-hero-avatar"
           role="img"
           aria-label={`${name}'s profile avatar initials ${initials}`}
         >
-          <span className="profile-avatar-initials">{initials}</span>
+          {avatar?.url ? (
+            <img
+              src={avatar.url}
+              alt={name}
+              style={{
+                width: '100%',
+                height: '100%',
+                borderRadius: '50%',
+                objectFit: 'cover',
+              }}
+            />
+          ) : (
+            <span className="profile-avatar-initials">{initials}</span>
+          )}
           <span className="profile-avatar-online-dot" title="Active on Cohort network" />
         </div>
 
@@ -63,11 +83,11 @@ export const ProfileHero = ({ profile, onEditClick, onShowToast }) => {
           <div className="profile-hero-badges-row">
             <span className="profile-badge profile-badge-role">
               <Sparkles size={12} className="text-marigold" aria-hidden="true" />
-              <span>{role}</span>
+              <span>{displayRole}</span>
             </span>
             <span className="profile-badge profile-badge-semester">
               <Calendar size={12} aria-hidden="true" />
-              <span>{semester}</span>
+              <span>{displaySemester}</span>
             </span>
             <span className="profile-badge profile-badge-completion">
               <span>{profileCompletion?.percentage || 75}% Profile Completed</span>
@@ -79,11 +99,11 @@ export const ProfileHero = ({ profile, onEditClick, onShowToast }) => {
           <div className="profile-hero-details-row">
             <div className="profile-detail-item">
               <Building size={14} className="profile-detail-icon" aria-hidden="true" />
-              <span>{college}</span>
+              <span>{college || 'Institution'}</span>
             </div>
             <div className="profile-detail-item">
               <GraduationCap size={14} className="profile-detail-icon" aria-hidden="true" />
-              <span>{department}</span>
+              <span>{department || 'Department'}</span>
             </div>
             <div className="profile-detail-item">
               <MapPin size={14} className="profile-detail-icon" aria-hidden="true" />

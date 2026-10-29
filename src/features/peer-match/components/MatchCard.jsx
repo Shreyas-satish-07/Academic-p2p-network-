@@ -17,17 +17,16 @@ import MatchExplanation from './MatchExplanation';
 /**
  * MatchCard component
  * 
- * Section 4: Match results
- * Each card displays:
- * - Avatar initials
+ * Displays:
+ * - Avatar (image or initials)
  * - Online/away indicator
- * - Name, department, semester (and year)
- * - Match percentage
- * - Skills
+ * - Name, department, semester
+ * - Match percentage (compatibility score)
+ * - Technical Skills
  * - Shared interests
  * - Availability
  * - 2-3 short match reasons
- * - Connect button (idle -> request-sent -> connected)
+ * - Connect button
  * - View Profile button
  */
 export const MatchCard = ({
@@ -37,6 +36,28 @@ export const MatchCard = ({
   onViewProfile,
 }) => {
   const [isExplanationOpen, setIsExplanationOpen] = useState(false);
+
+  if (!peer) return null;
+
+  const peerId = peer._id || peer.id;
+  const matchScore = peer.compatibilityScore ?? peer.matchScore ?? 0;
+  const isOnline = peer.isOnline !== undefined ? peer.isOnline : true;
+
+  // Format availability text safely regardless of object or array representation
+  const formatAvailability = (avail) => {
+    if (!avail) return 'Flexible schedule';
+    if (Array.isArray(avail)) return avail.join(', ');
+    if (typeof avail === 'object') {
+      const parts = [avail.weekdays, avail.weekends].filter(Boolean);
+      if (parts.length > 0) return parts.join(' • ');
+      if (Array.isArray(avail.openTo) && avail.openTo.length > 0) {
+        return avail.openTo.join(', ');
+      }
+    }
+    return String(avail);
+  };
+
+  const displayAvailability = formatAvailability(peer.availability);
 
   // Score color grading
   const getScoreBadgeClass = (score) => {
@@ -72,10 +93,14 @@ export const MatchCard = ({
     }
   };
 
+  const skillsList = Array.isArray(peer.skills) ? peer.skills : [];
+  const interestsList = Array.isArray(peer.interests) ? peer.interests : [];
+  const reasonsList = Array.isArray(peer.matchReasons) ? peer.matchReasons : [];
+
   return (
     <article
       className="peer-match-card"
-      aria-labelledby={`peer-name-${peer.id}`}
+      aria-labelledby={`peer-name-${peerId}`}
     >
       {/* Top Header */}
       <div className="peer-match-card-top">
@@ -83,26 +108,39 @@ export const MatchCard = ({
           <div
             className="peer-avatar-circle"
             role="img"
-            aria-label={`${peer.name}'s avatar initials ${peer.initials}`}
+            aria-label={`${peer.name}'s avatar`}
           >
-            <span>{peer.initials}</span>
+            {peer.avatar?.url ? (
+              <img
+                src={peer.avatar.url}
+                alt={peer.name}
+                style={{
+                  width: '100%',
+                  height: '100%',
+                  borderRadius: '50%',
+                  objectFit: 'cover',
+                }}
+              />
+            ) : (
+              <span>{peer.initials || 'ST'}</span>
+            )}
             {/* Online/Away Indicator */}
             <span
               className={`peer-status-indicator ${
-                peer.isOnline ? 'indicator-online' : 'indicator-away'
+                isOnline ? 'indicator-online' : 'indicator-away'
               }`}
-              title={peer.isOnline ? 'Online now' : 'Currently away'}
-              aria-label={peer.isOnline ? 'Online now' : 'Away'}
+              title={isOnline ? 'Online now' : 'Currently away'}
+              aria-label={isOnline ? 'Online now' : 'Away'}
             />
           </div>
 
           <div className="peer-identity">
             <div className="peer-identity-name-row">
-              <h3 id={`peer-name-${peer.id}`} className="peer-card-name">
+              <h3 id={`peer-name-${peerId}`} className="peer-card-name">
                 {peer.name}
               </h3>
               <span className="peer-online-text">
-                {peer.isOnline ? 'Active' : 'Away'}
+                {isOnline ? 'Active' : 'Away'}
               </span>
             </div>
             <div className="peer-card-academic-meta">
@@ -116,34 +154,36 @@ export const MatchCard = ({
 
         {/* Match Percentage Pill */}
         <div
-          className={`peer-score-badge ${getScoreBadgeClass(peer.matchScore)}`}
-          aria-label={`${peer.matchScore}% compatibility score`}
+          className={`peer-score-badge ${getScoreBadgeClass(matchScore)}`}
+          aria-label={`${matchScore}% compatibility score`}
         >
           <Sparkles size={11} className="score-sparkle" aria-hidden="true" />
-          <span>{peer.matchScore}% Match</span>
+          <span>{matchScore}% Match</span>
         </div>
       </div>
 
-      <p className="peer-card-bio">{peer.bio}</p>
+      <p className="peer-card-bio">{peer.bio || 'Eager to collaborate and build projects together.'}</p>
 
       {/* Technical Skills */}
-      <div className="peer-card-skills-section">
-        <span className="peer-skills-heading">Skills:</span>
-        <div className="peer-skills-chips">
-          {peer.skills.map((skill) => (
-            <span key={skill} className="peer-skill-tag tag-standard">
-              {skill}
-            </span>
-          ))}
+      {skillsList.length > 0 && (
+        <div className="peer-card-skills-section">
+          <span className="peer-skills-heading">Skills:</span>
+          <div className="peer-skills-chips">
+            {skillsList.map((skill) => (
+              <span key={skill} className="peer-skill-tag tag-standard">
+                {skill}
+              </span>
+            ))}
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Shared Interests */}
-      {peer.interests && peer.interests.length > 0 && (
+      {interestsList.length > 0 && (
         <div className="peer-card-interests-section">
-          <span className="peer-skills-heading">Shared Interests:</span>
+          <span className="peer-skills-heading">Interests:</span>
           <div className="peer-interests-chips">
-            {peer.interests.map((interest) => (
+            {interestsList.map((interest) => (
               <span key={interest} className="peer-interest-tag">
                 <BookOpen size={10} className="mr-1 text-slate" aria-hidden="true" />
                 {interest}
@@ -157,16 +197,16 @@ export const MatchCard = ({
       <div className="peer-card-meta-bar">
         <div className="meta-bar-item">
           <Calendar size={12} className="text-pine flex-shrink-0" aria-hidden="true" />
-          <span>Available: {peer.availability.join(', ')}</span>
+          <span>Available: {displayAvailability}</span>
         </div>
       </div>
 
       {/* 2-3 Short Match Reasons */}
-      {peer.matchReasons && peer.matchReasons.length > 0 && (
+      {reasonsList.length > 0 && (
         <div className="peer-card-reasons-box">
           <span className="card-reasons-heading">Why this match:</span>
           <ul className="card-reasons-list">
-            {peer.matchReasons.slice(0, 3).map((reason, idx) => (
+            {reasonsList.slice(0, 3).map((reason, idx) => (
               <li key={idx} className="card-reason-item">
                 <CheckCircle2 size={12} className="card-reason-icon" aria-hidden="true" />
                 <span>{reason}</span>
@@ -178,50 +218,48 @@ export const MatchCard = ({
 
       {/* Action Controls */}
       <div className="peer-card-actions">
-        {/* Connect Button */}
         <button
           type="button"
-          className={`peer-connect-action-btn btn-${collaborationStatus}`}
-          onClick={() => onConnect(peer.id)}
-          aria-label={`Connect with ${peer.name}. Status: ${collaborationStatus}`}
-        >
-          {renderConnectButton()}
-        </button>
-
-        {/* View Profile Button */}
-        <button
-          type="button"
-          className="peer-view-profile-btn"
+          className="peer-card-btn-outline"
           onClick={() => onViewProfile(peer)}
-          aria-label={`View full profile of ${peer.name}`}
+          aria-label={`View full profile for ${peer.name}`}
         >
           <ExternalLink size={13} aria-hidden="true" />
           <span>View Profile</span>
         </button>
 
-        {/* Breakdown Toggle Button */}
         <button
           type="button"
-          className="peer-explain-toggle-btn"
-          onClick={() => setIsExplanationOpen(!isExplanationOpen)}
-          aria-expanded={isExplanationOpen}
-          aria-controls={`explain-panel-${peer.id}`}
+          className={`peer-card-btn-connect btn-${collaborationStatus}`}
+          onClick={() => onConnect(peerId)}
+          aria-label={`Connect with ${peer.name}`}
         >
-          <span>Score</span>
-          {isExplanationOpen ? (
-            <ChevronUp size={13} aria-hidden="true" />
-          ) : (
-            <ChevronDown size={13} aria-hidden="true" />
-          )}
+          {renderConnectButton()}
         </button>
       </div>
 
-      {/* Expandable Match Explanation Breakdown */}
-      {isExplanationOpen && (
-        <div id={`explain-panel-${peer.id}`} className="card-explanation-container">
-          <MatchExplanation peer={peer} />
-        </div>
-      )}
+      {/* Accordion Toggle: Why this match? */}
+      <div className="peer-card-accordion-wrap">
+        <button
+          type="button"
+          className="accordion-toggle-btn"
+          onClick={() => setIsExplanationOpen(!isExplanationOpen)}
+          aria-expanded={isExplanationOpen}
+        >
+          <span>{isExplanationOpen ? 'Hide breakdown' : 'Why this match?'}</span>
+          {isExplanationOpen ? (
+            <ChevronUp size={14} aria-hidden="true" />
+          ) : (
+            <ChevronDown size={14} aria-hidden="true" />
+          )}
+        </button>
+
+        {isExplanationOpen && (
+          <div className="accordion-content-panel">
+            <MatchExplanation peer={peer} />
+          </div>
+        )}
+      </div>
     </article>
   );
 };

@@ -2,6 +2,7 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { AuthContext } from './authContextInstance';
 import { getStoredSession, saveSession, clearSession } from './authStorage';
 import api from '../services/api';
+import { disconnectSocket } from '../services/socket';
 
 /**
  * AuthProvider component
@@ -55,6 +56,7 @@ export const AuthProvider = ({ children }) => {
       } catch (err) {
         console.warn('Session verification failed; clearing expired/invalid credentials.', err);
         clearSession();
+        disconnectSocket();
         if (isMounted) {
           setToken(null);
           setUser(null);
@@ -168,12 +170,33 @@ export const AuthProvider = ({ children }) => {
       console.warn('Backend logout notification failed:', err?.message || err);
     });
 
+    // Disconnect active real-time socket connection
+    disconnectSocket();
+
     // Immediately purge client storage and state to prevent UI route bounces
     clearSession();
     setToken(null);
     setUser(null);
     showAuthToast('You have been logged out.');
   };
+
+  /**
+   * Update active user profile state and sync with persistent storage
+   */
+  const updateUser = useCallback((updatedUserData) => {
+    setUser((prev) => {
+      const merged = { ...prev, ...updatedUserData };
+      const currentToken =
+        token ||
+        localStorage.getItem('cohort_token') ||
+        sessionStorage.getItem('cohort_token');
+      if (currentToken) {
+        const isPersistent = Boolean(localStorage.getItem('cohort_token'));
+        saveSession(currentToken, merged, isPersistent);
+      }
+      return merged;
+    });
+  }, [token]);
 
   return (
     <AuthContext.Provider
@@ -188,6 +211,7 @@ export const AuthProvider = ({ children }) => {
         showAuthToast,
         toastMessage,
         setUser,
+        updateUser,
       }}
     >
       {children}

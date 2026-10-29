@@ -1,59 +1,95 @@
 import React, { useState, useEffect } from 'react';
-import { X, Save, User, Building, Code2, Clock, Link as LinkIcon } from 'lucide-react';
+import {
+  X,
+  Save,
+  User,
+  Building,
+  Code2,
+  Clock,
+  Link as LinkIcon,
+  AlertCircle,
+} from 'lucide-react';
 
 /**
  * EditProfileModal component
- * Accessible, responsive modal allowing the student to update their personal bio,
- * academic standing, skills, interests, availability, and social links.
- * 
- * Future Backend Integration:
- * When connected to the Express backend, submitting this form will dispatch:
- * await api.put('/api/users/me', updatedProfilePayload);
+ * Accessible modal allowing students to update their personal details, academic standing,
+ * skills, interests, availability, and avatar.
  */
-export const EditProfileModal = ({ isOpen, onClose, initialData, onSaveProfile }) => {
+export const EditProfileModal = ({
+  isOpen,
+  onClose,
+  initialData,
+  onSaveProfile,
+}) => {
   const [formData, setFormData] = useState({
     name: '',
-    bio: '',
+    college: '',
     department: '',
     semester: '',
+    bio: '',
     skills: '',
     interests: '',
     weekdays: '',
     weekends: '',
     preferredTeamSize: '',
+    openTo: '',
+    avatarUrl: '',
     github: '',
     linkedin: '',
   });
 
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [formError, setFormError] = useState(null);
+
   // Populate form with current profile data when opening modal
   useEffect(() => {
     if (initialData) {
+      let semVal = '';
+      if (initialData.rawSemester !== undefined && initialData.rawSemester !== null) {
+        semVal = String(initialData.rawSemester);
+      } else if (typeof initialData.semester === 'number') {
+        semVal = String(initialData.semester);
+      } else if (typeof initialData.semester === 'string') {
+        const match = initialData.semester.match(/\d+/);
+        semVal = match ? match[0] : initialData.semester;
+      }
+
       setFormData({
         name: initialData.name || '',
-        bio: initialData.bio || '',
+        college: initialData.college || '',
         department: initialData.department || '',
-        semester: initialData.semester || '',
-        skills: Array.isArray(initialData.skills) ? initialData.skills.join(', ') : '',
-        interests: Array.isArray(initialData.interests) ? initialData.interests.join(', ') : '',
+        semester: semVal,
+        bio: initialData.bio || '',
+        skills: Array.isArray(initialData.skills)
+          ? initialData.skills.join(', ')
+          : '',
+        interests: Array.isArray(initialData.interests)
+          ? initialData.interests.join(', ')
+          : '',
         weekdays: initialData.availability?.weekdays || '',
         weekends: initialData.availability?.weekends || '',
         preferredTeamSize: initialData.availability?.preferredTeamSize || '',
+        openTo: Array.isArray(initialData.availability?.openTo)
+          ? initialData.availability.openTo.join(', ')
+          : '',
+        avatarUrl: initialData.avatar?.url || '',
         github: initialData.github || '',
         linkedin: initialData.linkedin || '',
       });
+      setFormError(null);
     }
   }, [initialData, isOpen]);
 
   // Handle Escape key to close modal
   useEffect(() => {
     const handleKeyDown = (e) => {
-      if (e.key === 'Escape' && isOpen) {
+      if (e.key === 'Escape' && isOpen && !isSubmitting) {
         onClose();
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, onClose]);
+  }, [isOpen, onClose, isSubmitting]);
 
   if (!isOpen) return null;
 
@@ -62,59 +98,71 @@ export const EditProfileModal = ({ isOpen, onClose, initialData, onSaveProfile }
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
+    setFormError(null);
 
-    // Parse comma-separated skills and interests into arrays
-    const parsedSkills = formData.skills
-      .split(',')
-      .map((s) => s.trim())
-      .filter(Boolean);
+    // Validate semester (must be integer between 1 and 12)
+    const semNum = parseInt(String(formData.semester).replace(/\D/g, ''), 10);
+    if (!semNum || isNaN(semNum) || semNum < 1 || semNum > 12) {
+      setFormError('Semester must be a valid number between 1 and 12.');
+      return;
+    }
 
-    const parsedInterests = formData.interests
-      .split(',')
-      .map((i) => i.trim())
-      .filter(Boolean);
+    // Validate bio length (max 500 characters)
+    if (formData.bio && formData.bio.trim().length > 500) {
+      setFormError('Bio cannot exceed 500 characters.');
+      return;
+    }
 
-    const updatedProfile = {
-      ...initialData,
-      name: formData.name,
-      bio: formData.bio,
-      department: formData.department,
-      semester: formData.semester,
-      skills: parsedSkills.length > 0 ? parsedSkills : initialData.skills,
-      interests: parsedInterests.length > 0 ? parsedInterests : initialData.interests,
+    // Prepare strictly allowed fields payload
+    const payload = {
+      name: formData.name.trim(),
+      college: formData.college.trim(),
+      department: formData.department.trim(),
+      semester: semNum,
+      bio: formData.bio.trim(),
+      skills: formData.skills
+        .split(',')
+        .map((s) => s.trim())
+        .filter(Boolean),
+      interests: formData.interests
+        .split(',')
+        .map((i) => i.trim())
+        .filter(Boolean),
       availability: {
-        ...initialData.availability,
-        weekdays: formData.weekdays,
-        weekends: formData.weekends,
-        preferredTeamSize: formData.preferredTeamSize,
+        weekdays: formData.weekdays.trim(),
+        weekends: formData.weekends.trim(),
+        preferredTeamSize: formData.preferredTeamSize.trim(),
+        openTo: formData.openTo
+          .split(',')
+          .map((o) => o.trim())
+          .filter(Boolean),
       },
-      github: formData.github,
-      githubHandle: formData.github.replace(/^https?:\/\//, ''),
-      linkedin: formData.linkedin,
-      linkedinHandle: formData.linkedin.replace(/^https?:\/\//, ''),
+      avatar: {
+        url: formData.avatarUrl.trim(),
+      },
     };
 
-    /**
-     * Future Backend API Call:
-     * try {
-     *   const res = await api.put('/api/users/me', updatedProfile);
-     *   onSaveProfile(res.data);
-     * } catch (error) {
-     *   console.error('Failed to update profile:', error);
-     * }
-     */
-
-    // Apply local update and trigger success toast
-    onSaveProfile(updatedProfile);
-    onClose();
+    try {
+      setIsSubmitting(true);
+      await onSaveProfile(payload);
+      onClose();
+    } catch (err) {
+      console.error('Failed to save profile:', err);
+      const msg =
+        err.response?.data?.message ||
+        'Failed to save profile. Please verify your inputs and try again.';
+      setFormError(msg);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
     <div
       className="profile-modal-overlay"
-      onClick={onClose}
+      onClick={isSubmitting ? undefined : onClose}
       role="dialog"
       aria-modal="true"
       aria-labelledby="edit-profile-title"
@@ -129,13 +177,14 @@ export const EditProfileModal = ({ isOpen, onClose, initialData, onSaveProfile }
               Edit Student Profile
             </h2>
             <p className="profile-modal-subtitle">
-              Updates will immediately reflect in your profile and peer-match visibility
+              Updates will persist to MongoDB and immediately reflect across Cohort
             </p>
           </div>
           <button
             type="button"
             className="modal-close-btn"
             onClick={onClose}
+            disabled={isSubmitting}
             aria-label="Close edit profile dialog"
           >
             <X size={18} />
@@ -144,6 +193,26 @@ export const EditProfileModal = ({ isOpen, onClose, initialData, onSaveProfile }
 
         <form onSubmit={handleSubmit} className="profile-modal-form">
           <div className="profile-modal-scrollable">
+            {/* Error Notification inside modal */}
+            {formError && (
+              <div
+                className="announce"
+                role="alert"
+                style={{
+                  margin: '16px 24px 0 24px',
+                  borderColor: 'rgba(239, 68, 68, 0.4)',
+                  background: 'rgba(239, 68, 68, 0.08)',
+                  color: '#dc2626',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                }}
+              >
+                <AlertCircle size={16} aria-hidden="true" />
+                <span>{formError}</span>
+              </div>
+            )}
+
             {/* Section 1: Basic Identity */}
             <div className="modal-form-section">
               <div className="modal-section-heading">
@@ -168,13 +237,41 @@ export const EditProfileModal = ({ isOpen, onClose, initialData, onSaveProfile }
               </div>
 
               <div className="form-group">
-                <label htmlFor="edit-bio" className="form-label">
-                  Bio / Learning Statement
+                <label htmlFor="edit-avatar" className="form-label">
+                  Avatar Image URL <span className="label-hint">(optional)</span>
                 </label>
+                <div style={{ position: 'relative' }}>
+                  <input
+                    id="edit-avatar"
+                    type="url"
+                    name="avatarUrl"
+                    value={formData.avatarUrl}
+                    onChange={handleChange}
+                    className="form-input"
+                    placeholder="https://images.unsplash.com/photo-..."
+                  />
+                </div>
+              </div>
+
+              <div className="form-group">
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <label htmlFor="edit-bio" className="form-label">
+                    Bio / Learning Statement
+                  </label>
+                  <span
+                    className="label-hint"
+                    style={{
+                      color: formData.bio.length > 500 ? '#dc2626' : undefined,
+                    }}
+                  >
+                    {formData.bio.length}/500
+                  </span>
+                </div>
                 <textarea
                   id="edit-bio"
                   name="bio"
                   rows={3}
+                  maxLength={500}
                   value={formData.bio}
                   onChange={handleChange}
                   className="form-textarea"
@@ -190,6 +287,22 @@ export const EditProfileModal = ({ isOpen, onClose, initialData, onSaveProfile }
                 <span>Academic Info</span>
               </div>
 
+              <div className="form-group">
+                <label htmlFor="edit-college" className="form-label">
+                  College / University
+                </label>
+                <input
+                  id="edit-college"
+                  type="text"
+                  name="college"
+                  value={formData.college}
+                  onChange={handleChange}
+                  required
+                  className="form-input"
+                  placeholder="e.g. BMS College of Engineering"
+                />
+              </div>
+
               <div className="form-row-2col">
                 <div className="form-group">
                   <label htmlFor="edit-department" className="form-label">
@@ -201,6 +314,7 @@ export const EditProfileModal = ({ isOpen, onClose, initialData, onSaveProfile }
                     name="department"
                     value={formData.department}
                     onChange={handleChange}
+                    required
                     className="form-input"
                     placeholder="e.g. Computer Science and Engineering"
                   />
@@ -208,16 +322,19 @@ export const EditProfileModal = ({ isOpen, onClose, initialData, onSaveProfile }
 
                 <div className="form-group">
                   <label htmlFor="edit-semester" className="form-label">
-                    Current Semester
+                    Current Semester <span className="label-hint">(1 - 12)</span>
                   </label>
                   <input
                     id="edit-semester"
-                    type="text"
+                    type="number"
+                    min="1"
+                    max="12"
                     name="semester"
                     value={formData.semester}
                     onChange={handleChange}
+                    required
                     className="form-input"
-                    placeholder="e.g. 6th Semester"
+                    placeholder="e.g. 6"
                   />
                 </div>
               </div>
@@ -314,6 +431,21 @@ export const EditProfileModal = ({ isOpen, onClose, initialData, onSaveProfile }
                   placeholder="e.g. Small teams, 2–4 members"
                 />
               </div>
+
+              <div className="form-group">
+                <label htmlFor="edit-opento" className="form-label">
+                  Open For <span className="label-hint">(comma-separated, e.g. Study groups, Hackathons)</span>
+                </label>
+                <input
+                  id="edit-opento"
+                  type="text"
+                  name="openTo"
+                  value={formData.openTo}
+                  onChange={handleChange}
+                  className="form-input"
+                  placeholder="Study groups, Hackathons, MERN projects..."
+                />
+              </div>
             </div>
 
             {/* Section 5: Online Profiles */}
@@ -360,15 +492,17 @@ export const EditProfileModal = ({ isOpen, onClose, initialData, onSaveProfile }
               type="button"
               className="modal-btn modal-btn-secondary"
               onClick={onClose}
+              disabled={isSubmitting}
             >
               Cancel
             </button>
             <button
               type="submit"
               className="modal-btn modal-btn-primary"
+              disabled={isSubmitting}
             >
               <Save size={15} aria-hidden="true" />
-              <span>Save Changes</span>
+              <span>{isSubmitting ? 'Saving...' : 'Save Changes'}</span>
             </button>
           </div>
         </form>

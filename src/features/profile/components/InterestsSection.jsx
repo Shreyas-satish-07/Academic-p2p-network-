@@ -8,7 +8,10 @@ import { Compass, Users, Sparkles, Target } from 'lucide-react';
  */
 export const InterestsSection = ({ profile }) => {
   const { interests = [], availability } = profile;
-  const { preferredTeamSize = 'Small teams, 2–4 members', openTo = [] } = availability || {};
+  const {
+    preferredTeamSize = 'Small teams, 2–4 members',
+    openTo = ['Study groups', 'Hackathons', 'MERN projects'],
+  } = availability || {};
 
   return (
     <article className="profile-card" aria-labelledby="interests-heading">
@@ -30,12 +33,16 @@ export const InterestsSection = ({ profile }) => {
       <div className="interests-block">
         <h3 className="interests-subtitle">Topics of Interest</h3>
         <div className="interests-chips-wrap">
-          {interests.map((interest) => (
-            <span key={interest} className="interest-chip">
-              <Sparkles size={11} className="interest-chip-icon" aria-hidden="true" />
-              <span>{interest}</span>
-            </span>
-          ))}
+          {interests.length > 0 ? (
+            interests.map((interest) => (
+              <span key={interest} className="interest-chip">
+                <Sparkles size={11} className="interest-chip-icon" aria-hidden="true" />
+                <span>{interest}</span>
+              </span>
+            ))
+          ) : (
+            <span className="pref-sub-tag">No collaboration interests specified yet.</span>
+          )}
         </div>
       </div>
 
@@ -47,7 +54,7 @@ export const InterestsSection = ({ profile }) => {
           </div>
           <div className="pref-content">
             <span className="pref-label">Preferred Team Size</span>
-            <span className="pref-value">{preferredTeamSize}</span>
+            <span className="pref-value">{preferredTeamSize || 'Flexible'}</span>
           </div>
         </div>
 
@@ -58,11 +65,15 @@ export const InterestsSection = ({ profile }) => {
           <div className="pref-content">
             <span className="pref-label">Open For</span>
             <div className="pref-tags-list">
-              {openTo.map((item) => (
-                <span key={item} className="pref-sub-tag">
-                  {item}
-                </span>
-              ))}
+              {openTo.length > 0 ? (
+                openTo.map((item) => (
+                  <span key={item} className="pref-sub-tag">
+                    {item}
+                  </span>
+                ))
+              ) : (
+                <span className="pref-sub-tag">Study groups & Projects</span>
+              )}
             </div>
           </div>
         </div>

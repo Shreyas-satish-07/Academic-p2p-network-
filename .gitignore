@@ -3,3 +3,10 @@ dist
 .env
 .env.local
 .env.*.local
+server/.env
+server/.env.local
+server/.env.*.local
+*.log
+coverage
+.vscode
+.idea

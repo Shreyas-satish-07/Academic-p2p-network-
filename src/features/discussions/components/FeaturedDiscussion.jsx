@@ -21,8 +21,12 @@ export const FeaturedDiscussion = ({
 }) => {
   if (!discussion) return null;
 
+  const discussionId = discussion.id || discussion._id;
+  const authorName = typeof discussion.author === 'object' ? discussion.author?.name || 'Cohort Student' : discussion.author || 'Cohort Student';
+  const authorInitials = discussion.authorInitials || (typeof authorName === 'string' ? authorName.substring(0, 2).toUpperCase() : 'CO');
+
   const acceptedAnswer = discussion.answers?.find(
-    (a) => a.isAccepted || a.id === discussion.acceptedAnswerId
+    (a) => a.isAccepted || (a.id || a._id) === discussion.acceptedAnswerId
   );
 
   return (
@@ -76,11 +80,11 @@ export const FeaturedDiscussion = ({
       {/* Footer Metrics & Actions */}
       <div className="disc-featured-footer">
         <div className="disc-author-info">
-          <div className="disc-author-avatar" title={discussion.author}>
-            {discussion.authorInitials}
+          <div className="disc-author-avatar" title={authorName}>
+            {authorInitials}
           </div>
           <div>
-            <span className="disc-author-name">Asked by {discussion.author}</span>
+            <span className="disc-author-name">Asked by {authorName}</span>
             <span className="disc-author-sub" style={{ marginLeft: '6px' }}>
               • {discussion.createdAt}
             </span>
@@ -92,7 +96,7 @@ export const FeaturedDiscussion = ({
           <button
             type="button"
             className={`disc-btn ${hasUpvoted ? 'disc-btn-primary' : 'disc-btn-outline'}`}
-            onClick={() => onUpvote(discussion.id)}
+            onClick={() => onUpvote(discussionId)}
             aria-label={`Upvote featured question. Current votes: ${discussion.voteCount}`}
           >
             <ThumbsUp size={13} aria-hidden="true" />

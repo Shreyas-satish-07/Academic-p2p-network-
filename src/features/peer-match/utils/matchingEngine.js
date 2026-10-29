@@ -2,31 +2,27 @@
  * Local Matching Engine Utility
  * 
  * Implements an explainable scoring algorithm for peer matching based on:
- * - Shared technical skills: up to 35 points
+ * - Shared technical skills: up to 45 points
  * - Shared project interests: up to 25 points
- * - Same department: 15 points
- * - Same semester: 15 points
+ * - Same department: 10 points
+ * - Same or nearby semester: 10 points
  * - Availability overlap: 10 points
  * Total Maximum: 100 points
- * 
- * Future Backend Architecture (Express + MongoDB):
- * GET  /api/users/matches      -> Returns peers sorted by algorithmic score for req.user
- * GET  /api/users/:id          -> Returns detailed profile for specific peer
- * POST /api/connections/:userId -> Sends connection request or updates collaboration state
  */
 
 /**
- * Calculates a deterministic, explainable compatibility score and breakdown
+ * Calculates an explainable compatibility score and breakdown
  * between the target peer and the current logged-in user.
  * 
  * @param {Object} peer - Peer profile data
  * @param {Object} user - Current user profile data
- * @returns {Object} { matchScore, breakdown, sharedSkills, sharedInterests, sharedAvailability }
+ * @returns {Object} { matchScore, compatibilityScore, breakdown, sharedSkills, sharedInterests, sharedAvailability }
  */
 export function calculateMatchScore(peer, user) {
   if (!peer || !user) {
     return {
       matchScore: 0,
+      compatibilityScore: 0,
       breakdown: [],
       sharedSkills: [],
       sharedInterests: [],
@@ -34,57 +30,89 @@ export function calculateMatchScore(peer, user) {
     };
   }
 
-  // 1. Shared Skills (up to 35 points)
-  const peerSkills = peer.skills || [];
-  const userSkills = user.skills || [];
+  // 1. Shared Skills (up to 45 points)
+  const peerSkills = Array.isArray(peer.skills) ? peer.skills : [];
+  const userSkills = Array.isArray(user.skills) ? user.skills : [];
   const sharedSkills = peerSkills.filter((skill) =>
-    userSkills.some((us) => us.toLowerCase() === skill.toLowerCase())
+    userSkills.some((us) => us.toLowerCase().trim() === skill.toLowerCase().trim())
   );
-  
-  // Weight formula: up to 35 points based on match proportion
+
   let skillsPoints = 0;
-  if (peerSkills.length > 0 && sharedSkills.length > 0) {
-    // If 3+ shared skills or matches all user requirements, award top marks
-    const ratio = sharedSkills.length / Math.min(peerSkills.length, 4);
-    skillsPoints = Math.min(35, Math.round(ratio * 35));
+  if (peerSkills.length > 0 && userSkills.length > 0 && sharedSkills.length > 0) {
+    const ratio = Math.min(1, sharedSkills.length / Math.min(Math.max(userSkills.length, 1), 3));
+    skillsPoints = Math.round(ratio * 45);
   }
 
   // 2. Shared Interests (up to 25 points)
-  const peerInterests = peer.interests || [];
-  const userInterests = user.interests || [];
+  const peerInterests = Array.isArray(peer.interests) ? peer.interests : [];
+  const userInterests = Array.isArray(user.interests) ? user.interests : [];
   const sharedInterests = peerInterests.filter((interest) =>
-    userInterests.some((ui) => ui.toLowerCase() === interest.toLowerCase())
+    userInterests.some((ui) => ui.toLowerCase().trim() === interest.toLowerCase().trim())
   );
 
   let interestsPoints = 0;
-  if (peerInterests.length > 0 && sharedInterests.length > 0) {
-    const ratio = sharedInterests.length / Math.min(peerInterests.length, 3);
-    interestsPoints = Math.min(25, Math.round(ratio * 25));
+  if (peerInterests.length > 0 && userInterests.length > 0 && sharedInterests.length > 0) {
+    const ratio = Math.min(1, sharedInterests.length / Math.min(Math.max(userInterests.length, 1), 2));
+    interestsPoints = Math.round(ratio * 25);
   }
 
-  // 3. Same Department (15 points)
+  // 3. Same Department (10 points)
   const isSameDept =
     peer.department &&
     user.department &&
     peer.department.toLowerCase().trim() === user.department.toLowerCase().trim();
-  const departmentPoints = isSameDept ? 15 : 0;
+  const departmentPoints = isSameDept ? 10 : 0;
 
-  // 4. Same Semester (15 points)
-  const isSameSemester = peer.semester && user.semester && peer.semester === user.semester;
-  const semesterPoints = isSameSemester ? 15 : 0;
+  // 4. Same or Nearby Semester (10 points)
+  const peerSem = typeof peer.semester === 'number' ? peer.semester : parseInt(peer.semester, 10);
+  const userSem = typeof user.semester === 'number' ? user.semester : parseInt(user.semester, 10);
+
+  let semesterPoints = 0;
+  let semesterDetail = 'Different semester';
+  if (!isNaN(peerSem) && !isNaN(userSem)) {
+    if (peerSem === userSem) {
+      semesterPoints = 10;
+      semesterDetail = `Same academic semester (Semester ${peerSem})`;
+    } else if (Math.abs(peerSem - userSem) === 1) {
+      semesterPoints = 5;
+      semesterDetail = `Adjacent academic semester (Semester ${peerSem} vs ${userSem})`;
+    } else {
+      semesterDetail = `Different semester (Semester ${peerSem} vs ${userSem})`;
+    }
+  }
 
   // 5. Availability Overlap (10 points)
-  const peerAvail = peer.availability || [];
-  const userAvail = user.availability || [];
-  const sharedAvailability = peerAvail.filter((avail) =>
-    userAvail.some((ua) => ua.toLowerCase() === avail.toLowerCase())
-  );
-  const availabilityPoints = sharedAvailability.length > 0 ? 10 : 0;
+  let sharedAvailability = [];
+  let availabilityPoints = 0;
 
-  // Total raw score (capped at 100)
+  if (Array.isArray(peer.availability) && Array.isArray(user.availability)) {
+    sharedAvailability = peer.availability.filter((avail) =>
+      user.availability.some((ua) => ua.toLowerCase().trim() === avail.toLowerCase().trim())
+    );
+    if (sharedAvailability.length > 0) availabilityPoints = 10;
+  } else {
+    const peerAvail = peer.availability || {};
+    const userAvail = user.availability || {};
+    const peerOpenTo = Array.isArray(peerAvail.openTo) ? peerAvail.openTo : [];
+    const userOpenTo = Array.isArray(userAvail.openTo) ? userAvail.openTo : [];
+
+    const sharedOpenTo = peerOpenTo.filter((po) =>
+      userOpenTo.some((uo) => uo.toLowerCase().trim() === po.toLowerCase().trim())
+    );
+
+    if (sharedOpenTo.length > 0) availabilityPoints += 5;
+
+    const bothWeekdays = Boolean(peerAvail.weekdays && userAvail.weekdays);
+    const bothWeekends = Boolean(peerAvail.weekends && userAvail.weekends);
+    if (bothWeekdays || bothWeekends) availabilityPoints += 5;
+
+    sharedAvailability = sharedOpenTo;
+  }
+
+  // Total raw score capped at 100
   const totalScore = Math.min(
     100,
-    skillsPoints + interestsPoints + departmentPoints + semesterPoints + availabilityPoints
+    Math.max(0, skillsPoints + interestsPoints + departmentPoints + semesterPoints + availabilityPoints)
   );
 
   // Structured breakdown array for UI display and explainability
@@ -93,7 +121,7 @@ export function calculateMatchScore(peer, user) {
       category: 'skills',
       label: 'Shared Technical Skills',
       points: skillsPoints,
-      maxPoints: 35,
+      maxPoints: 45,
       detail:
         sharedSkills.length > 0
           ? `${sharedSkills.length} shared technical skills (${sharedSkills.join(', ')})`
@@ -113,19 +141,17 @@ export function calculateMatchScore(peer, user) {
       category: 'department',
       label: 'Department Alignment',
       points: departmentPoints,
-      maxPoints: 15,
+      maxPoints: 10,
       detail: isSameDept
         ? `Same department (${peer.department})`
-        : `Different department (${peer.department} vs ${user.department})`,
+        : `Different department (${peer.department || 'N/A'} vs ${user.department || 'N/A'})`,
     },
     {
       category: 'semester',
       label: 'Semester Match',
       points: semesterPoints,
-      maxPoints: 15,
-      detail: isSameSemester
-        ? `Same academic semester (Semester ${peer.semester})`
-        : `Different semester (Semester ${peer.semester} vs Semester ${user.semester})`,
+      maxPoints: 10,
+      detail: semesterDetail,
     },
     {
       category: 'availability',
@@ -133,14 +159,15 @@ export function calculateMatchScore(peer, user) {
       points: availabilityPoints,
       maxPoints: 10,
       detail:
-        sharedAvailability.length > 0
-          ? `Overlapping schedule (${sharedAvailability.join(', ')})`
+        availabilityPoints > 0
+          ? `Overlapping schedule & collaboration goals`
           : 'Non-overlapping active hours',
     },
   ];
 
   return {
     matchScore: totalScore,
+    compatibilityScore: totalScore,
     breakdown,
     sharedSkills,
     sharedInterests,

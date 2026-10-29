@@ -4,13 +4,13 @@ import { Award, Download, Bookmark, Eye, FileText, User, Calendar } from 'lucide
 /**
  * FeaturedResource component
  * 
- * Section 2: Featured resource
- * - Highlights "DBMS Notes.pdf"
- * - Displays title, type, subject, uploader, description, download count, tags,
+ * Section 2: Featured resource spotlight
+ * - Highlights a key academic resource
+ * - Displays title, type, subject, uploader, description, download/like count, tags,
  *   and a document-preview-style visual thumbnail.
  * - Actions:
- *   - Preview
- *   - Download (updates local count, toast)
+ *   - Preview (opens modal & increments view count)
+ *   - Download / Open URL
  *   - Save Resource (toggles isSaved state)
  */
 export const FeaturedResource = ({
@@ -20,6 +20,10 @@ export const FeaturedResource = ({
   onToggleSave,
 }) => {
   if (!resource) return null;
+
+  const resId = resource.id || resource._id;
+  const tagsList = resource.tags || resource.topics || [];
+  const isSaved = Boolean(resource.isSaved || resource.isSavedByCurrentUser);
 
   return (
     <section className="res-featured-card" aria-label="Featured Academic Resource">
@@ -32,14 +36,14 @@ export const FeaturedResource = ({
 
         <div className="res-featured-downloads-stat">
           <Download size={12} aria-hidden="true" />
-          <span>{resource.downloadCount} Total Downloads</span>
+          <span>{resource.viewCount || resource.downloadCount || 0} Total Views</span>
         </div>
       </div>
 
       <div className="res-featured-body">
         {/* Document-preview-style visual thumbnail */}
         <div className="res-doc-preview-visual" aria-hidden="true">
-          <span className="res-doc-preview-tag">{resource.type}</span>
+          <span className="res-doc-preview-tag">{resource.type || 'Resource'}</span>
           <div className="res-doc-preview-lines">
             <div className="res-doc-line line-long" />
             <div className="res-doc-line line-mid" />
@@ -59,7 +63,7 @@ export const FeaturedResource = ({
               {resource.title}
             </h2>
             <span className="res-type-pill type-pdf">
-              {resource.type}
+              {resource.type || 'Resource'}
             </span>
             <span className="res-subject-pill">
               {resource.subject}
@@ -70,7 +74,7 @@ export const FeaturedResource = ({
 
           {/* Tags */}
           <div className="res-tags-list">
-            {resource.tags.map((tag) => (
+            {tagsList.map((tag) => (
               <span key={tag} className="res-tag-pill">
                 #{tag}
               </span>
@@ -110,30 +114,30 @@ export const FeaturedResource = ({
               <span>Preview</span>
             </button>
 
-            {/* Download Button */}
+            {/* Download / Open Button */}
             <button
               type="button"
               className="res-primary-btn"
               onClick={() => onDownload(resource)}
-              aria-label={`Download ${resource.title}`}
+              aria-label={`Open or download ${resource.title}`}
             >
               <Download size={13} aria-hidden="true" />
-              <span>Download</span>
+              <span>Open</span>
             </button>
 
             {/* Save Resource Button */}
             <button
               type="button"
-              className={`res-save-toggle-btn ${resource.isSaved ? 'saved-active' : ''}`}
-              onClick={() => onToggleSave(resource.id)}
-              aria-label={resource.isSaved ? `Unsave ${resource.title}` : `Save ${resource.title}`}
+              className={`res-save-toggle-btn ${isSaved ? 'saved-active' : ''}`}
+              onClick={() => onToggleSave(resId)}
+              aria-label={isSaved ? `Unsave ${resource.title}` : `Save ${resource.title}`}
             >
               <Bookmark
                 size={13}
-                fill={resource.isSaved ? 'currentColor' : 'none'}
+                fill={isSaved ? 'currentColor' : 'none'}
                 aria-hidden="true"
               />
-              <span>{resource.isSaved ? 'Saved' : 'Save Resource'}</span>
+              <span>{isSaved ? 'Saved' : 'Save Resource'}</span>
             </button>
           </div>
         </div>

@@ -49,8 +49,11 @@ export const FilesPanel = ({
   return (
     <div className="files-list" role="region" aria-label="Shared workspace files">
       {files.length === 0 ? (
-        <div style={{ textAlign: 'center', color: 'var(--ink-soft)', padding: '24px 0', fontSize: '13px' }}>
-          No files shared in this workspace yet.
+        <div style={{ textAlign: 'center', color: 'var(--ink-soft)', padding: '24px 12px', fontSize: '13px' }}>
+          <p style={{ margin: '0 0 8px 0', fontWeight: 600 }}>No shared files in this workspace yet.</p>
+          <span style={{ fontSize: '11.5px', color: 'var(--pine)', backgroundColor: 'var(--pine-tint, rgba(47, 93, 80, 0.1))', padding: '4px 10px', borderRadius: '4px', fontWeight: 500 }}>
+            File uploads & Cloud attachments coming soon
+          </span>
         </div>
       ) : (
         files.map((file) => (

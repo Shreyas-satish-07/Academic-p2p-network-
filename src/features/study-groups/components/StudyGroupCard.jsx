@@ -64,6 +64,7 @@ export const StudyGroupCard = ({
   group,
   onToggleJoin,
 }) => {
+  const groupId = group.id || group._id;
   const isFull = group.memberCount >= group.maxMembers && !group.joined;
   const capacityPercent = Math.min(100, Math.round((group.memberCount / group.maxMembers) * 100));
 
@@ -76,10 +77,12 @@ export const StudyGroupCard = ({
     }
   };
 
+  const tagsList = group.tags || group.topics || [];
+
   return (
     <article
       className={`sg-card ${isFull ? 'sg-card-full-border' : ''}`}
-      aria-labelledby={`sg-name-${group.id}`}
+      aria-labelledby={`sg-name-${groupId}`}
     >
       {/* Top Header */}
       <div className="sg-card-top">
@@ -94,7 +97,7 @@ export const StudyGroupCard = ({
           </div>
 
           <div className="sg-card-title-group">
-            <h3 id={`sg-name-${group.id}`} className="sg-card-name">
+            <h3 id={`sg-name-${groupId}`} className="sg-card-name">
               {group.name}
             </h3>
             <span className="sg-card-subject">{group.subject}</span>
@@ -125,7 +128,7 @@ export const StudyGroupCard = ({
 
       {/* Tags */}
       <div className="sg-card-tags">
-        {group.tags.slice(0, 4).map((tag) => (
+        {tagsList.slice(0, 4).map((tag) => (
           <span key={tag} className="sg-tag-pill">
             #{tag}
           </span>
@@ -178,9 +181,9 @@ export const StudyGroupCard = ({
       {/* Action Controls */}
       <div className="sg-card-actions">
         <div className="sg-members-stack" aria-label="Group member initials">
-          {(group.members || []).slice(0, 3).map((m) => (
+          {(group.members || []).slice(0, 3).map((m, idx) => (
             <div
-              key={m.id}
+              key={m.id || m._id || idx}
               className="sg-member-pill-avatar"
               title={`${m.name} (${m.role})`}
             >
@@ -194,7 +197,7 @@ export const StudyGroupCard = ({
           )}
         </div>
 
-        {/* Join button with local state transition: Join Group -> Joined */}
+        {/* Join button with state transition: Join Group -> Joined */}
         <button
           type="button"
           className={`sg-join-action-btn ${
@@ -204,7 +207,7 @@ export const StudyGroupCard = ({
               ? 'sg-join-btn-full'
               : 'sg-join-btn-unjoined'
           }`}
-          onClick={() => onToggleJoin(group.id)}
+          onClick={() => onToggleJoin(groupId)}
           disabled={isFull && !group.joined}
           aria-label={
             group.joined

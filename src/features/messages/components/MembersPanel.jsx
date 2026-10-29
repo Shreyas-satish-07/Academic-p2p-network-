@@ -49,7 +49,7 @@ export const MembersPanel = ({
 
       {/* Member Roster */}
       {members.map((member) => (
-        <div key={member.id} className="member-row">
+        <div key={member.id || member._id || member.name} className="member-row">
           <div
             className="member-avatar"
             style={{

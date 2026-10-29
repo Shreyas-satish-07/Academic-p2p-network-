@@ -27,6 +27,8 @@ export const CreateDiscussionModal = ({
   });
 
   const [errors, setErrors] = useState({});
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [apiError, setApiError] = useState('');
 
   useEffect(() => {
     const handleKeyDown = (e) => {
@@ -46,15 +48,26 @@ export const CreateDiscussionModal = ({
     if (errors[name]) {
       setErrors((prev) => ({ ...prev, [name]: null }));
     }
+    if (apiError) setApiError('');
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
 
     // Validation
     const newErrors = {};
-    if (!formData.title.trim()) newErrors.title = 'Question title is required.';
-    if (!formData.body.trim()) newErrors.body = 'Detailed question explanation is required.';
+    if (!formData.title.trim()) {
+      newErrors.title = 'Question title is required.';
+    } else if (formData.title.trim().length < 5) {
+      newErrors.title = 'Question title must be at least 5 characters.';
+    }
+
+    if (!formData.body.trim()) {
+      newErrors.body = 'Detailed question explanation is required.';
+    } else if (formData.body.trim().length < 20) {
+      newErrors.body = 'Explanation must be at least 20 characters long.';
+    }
+
     if (!formData.subject || formData.subject === 'All Subjects') {
       newErrors.subject = 'Please select a valid subject category.';
     }
@@ -69,39 +82,39 @@ export const CreateDiscussionModal = ({
       .map((t) => t.trim().replace(/^#/, ''))
       .filter(Boolean);
 
-    const newDiscussion = {
-      id: `disc-${Date.now()}`,
+    const discussionPayload = {
       title: formData.title.trim(),
       body: formData.body.trim(),
-      author: 'Shreyas Rao',
-      authorInitials: 'SR',
-      authorDepartment: 'Computer Science',
+      content: formData.body.trim(),
       subject: formData.subject,
       tags: tagList.length > 0 ? tagList : [formData.subject],
-      createdAt: 'Just now',
-      voteCount: 0,
-      answerCount: 0,
-      viewCount: 1,
-      isSolved: false,
-      acceptedAnswerId: null,
       linkedProjectId: formData.linkedProjectId || null,
       linkedResourceId: formData.linkedResourceId || null,
-      answers: [],
     };
 
-    onCreateDiscussion(newDiscussion);
-    onClose();
+    setIsSubmitting(true);
+    setApiError('');
 
-    // Reset form
-    setFormData({
-      title: '',
-      body: '',
-      subject: 'DBMS',
-      tags: '',
-      linkedProjectId: '',
-      linkedResourceId: '',
-    });
-    setErrors({});
+    try {
+      await onCreateDiscussion(discussionPayload);
+      onClose();
+
+      // Reset form
+      setFormData({
+        title: '',
+        body: '',
+        subject: 'DBMS',
+        tags: '',
+        linkedProjectId: '',
+        linkedResourceId: '',
+      });
+      setErrors({});
+    } catch (err) {
+      const msg = err.response?.data?.message || err.message || 'Failed to post question. Please try again.';
+      setApiError(msg);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const selectableSubjects = SUBJECT_OPTIONS.filter((s) => s !== 'All Subjects');
@@ -259,14 +272,34 @@ export const CreateDiscussionModal = ({
             </div>
           </div>
 
+          {apiError && (
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                padding: '10px 14px',
+                borderRadius: '8px',
+                backgroundColor: '#fef2f2',
+                color: '#b91c1c',
+                fontSize: '13px',
+                border: '1px solid #fecaca',
+              }}
+              role="alert"
+            >
+              <AlertCircle size={16} aria-hidden="true" />
+              <span>{apiError}</span>
+            </div>
+          )}
+
           {/* Submit Actions */}
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '10px', marginTop: '8px' }}>
-            <button type="button" className="disc-btn disc-btn-outline" onClick={onClose}>
+            <button type="button" className="disc-btn disc-btn-outline" onClick={onClose} disabled={isSubmitting}>
               Cancel
             </button>
-            <button type="submit" className="disc-btn disc-btn-primary">
+            <button type="submit" className="disc-btn disc-btn-primary" disabled={isSubmitting}>
               <Plus size={14} aria-hidden="true" />
-              <span>Post Question</span>
+              <span>{isSubmitting ? 'Posting...' : 'Post Question'}</span>
             </button>
           </div>
         </form>

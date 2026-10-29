@@ -1,6 +1,6 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { CheckCircle2 } from 'lucide-react';
+import { CheckCircle2, Loader2, AlertCircle, RotateCcw } from 'lucide-react';
 import AppLayout from '../components/layout/AppLayout';
 import DiscussionsHero from '../features/discussions/components/DiscussionsHero';
 import FeaturedDiscussion from '../features/discussions/components/FeaturedDiscussion';
@@ -11,7 +11,7 @@ import EmptyDiscussions from '../features/discussions/components/EmptyDiscussion
 import DiscussionDetailModal from '../features/discussions/components/DiscussionDetailModal';
 import CreateDiscussionModal from '../features/discussions/components/CreateDiscussionModal';
 
-import { INITIAL_DISCUSSIONS } from '../features/discussions/discussionsData';
+import { discussionApi } from '../services/api';
 import { ROUTES } from '../constants/routes';
 
 import '../features/discussions/discussions.css';
@@ -20,31 +20,23 @@ import '../features/discussions/discussions.css';
  * Discussions Page
  * Clean academic discussion forum where students can ask questions, post answers,
  * upvote useful content, mark accepted answers, filter by subject, and discover trending topics.
- * 
- * Future Backend Architecture (Express & MongoDB):
- * GET    /api/discussions                          -> Fetch paginated discussions with search, filter, and sort
- * GET    /api/discussions/:id                      -> Get full discussion with populated answers
- * POST   /api/discussions                          -> Create new discussion question
- * PATCH  /api/discussions/:id/upvote               -> Toggle upvote for discussion (prevents duplicates)
- * POST   /api/discussions/:id/answers              -> Submit an answer
- * PATCH  /api/discussions/:id/answers/:answerId/upvote -> Upvote an answer
- * PATCH  /api/discussions/:id/answers/:answerId/accept -> Mark/unmark an answer as accepted
- * 
- * Future MongoDB Models:
- * - Discussion: title, body, author, subject, tags, voteCount, upvoters, answerCount, viewCount, isSolved, acceptedAnswerId, linkedProjectId, linkedResourceId
- * - Answer: discussionId, author, body, voteCount, upvoters, isAccepted, createdAt
+ * Connected to Express + MongoDB backend (/api/discussions).
  */
 export const Discussions = () => {
   const location = useLocation();
   const navigate = useNavigate();
 
   // Discussions state
-  const [discussions, setDiscussions] = useState(INITIAL_DISCUSSIONS);
+  const [discussions, setDiscussions] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [errorMessage, setErrorMessage] = useState(null);
+
   const [userUpvotedDiscussions, setUserUpvotedDiscussions] = useState({});
   const [userUpvotedAnswers, setUserUpvotedAnswers] = useState({});
 
   // Filter & Search states
   const [searchQuery, setSearchQuery] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   const [selectedSubject, setSelectedSubject] = useState('All Subjects');
   const [selectedStatus, setSelectedStatus] = useState('all');
   const [sortBy, setSortBy] = useState('recent');
@@ -65,6 +57,104 @@ export const Discussions = () => {
     }, 3500);
   };
 
+  // Debounce search input for responsive backend queries
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(searchQuery);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
+  /**
+   * Fetch discussions from the backend API
+   */
+  const fetchDiscussions = useCallback(async () => {
+    setIsLoading(true);
+    setErrorMessage(null);
+
+    try {
+      const params = {
+        page: 1,
+        limit: 100, // Load discussions to support rich client-side responsiveness
+      };
+
+      if (debouncedSearch.trim()) {
+        params.search = debouncedSearch.trim();
+      }
+
+      if (selectedSubject !== 'All Subjects') {
+        params.subject = selectedSubject;
+      }
+
+      if (selectedStatus !== 'all') {
+        params.status = selectedStatus;
+      }
+
+      if (selectedTopic) {
+        params.tags = selectedTopic;
+      }
+
+      if (myDiscussionsOnly) {
+        params.mine = 'true';
+      }
+
+      // Map frontend sort values to API sort parameters
+      switch (sortBy) {
+        case 'upvoted':
+          params.sort = 'mostVoted';
+          break;
+        case 'answered':
+          params.sort = 'mostAnswered';
+          break;
+        case 'viewed':
+          params.sort = 'mostViewed';
+          break;
+        case 'recent':
+        default:
+          params.sort = 'newest';
+          break;
+      }
+
+      const res = await discussionApi.getDiscussions(params);
+      const items = res.data?.data?.discussions || [];
+      setDiscussions(items);
+
+      // Populate upvote states from backend response
+      const initialUpvotedDiscussions = {};
+      const initialUpvotedAnswers = {};
+
+      items.forEach((d) => {
+        const dId = d.id || d._id;
+        if (d.isVotedByCurrentUser) {
+          initialUpvotedDiscussions[dId] = true;
+        }
+        if (Array.isArray(d.answers)) {
+          d.answers.forEach((ans) => {
+            const ansId = ans.id || ans._id;
+            if (ans.isVotedByCurrentUser) {
+              initialUpvotedAnswers[ansId] = true;
+            }
+          });
+        }
+      });
+
+      setUserUpvotedDiscussions((prev) => ({ ...initialUpvotedDiscussions, ...prev }));
+      setUserUpvotedAnswers((prev) => ({ ...initialUpvotedAnswers, ...prev }));
+    } catch (err) {
+      console.error('Failed to load discussions:', err);
+      const msg =
+        err.response?.data?.message ||
+        'Could not load discussions. Please check your network connection.';
+      setErrorMessage(msg);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [debouncedSearch, selectedSubject, selectedStatus, selectedTopic, myDiscussionsOnly, sortBy]);
+
+  useEffect(() => {
+    fetchDiscussions();
+  }, [fetchDiscussions]);
+
   // Synchronize route state triggers (e.g. from Dashboard quick actions or cards)
   useEffect(() => {
     if (location.state) {
@@ -72,8 +162,8 @@ export const Discussions = () => {
       if (stateObj.openCreateDiscussionModal || stateObj.openCreateDiscussion) {
         setIsCreateModalOpen(true);
       }
-      if (stateObj.discussionId) {
-        const disc = discussions.find((d) => d.id === stateObj.discussionId);
+      if (stateObj.discussionId && discussions.length > 0) {
+        const disc = discussions.find((d) => (d.id || d._id) === stateObj.discussionId);
         if (disc) {
           handleOpenDiscussion(disc);
         }
@@ -85,21 +175,40 @@ export const Discussions = () => {
 
   // Featured discussion spotlight: DBMS normalization discussion or top-voted solved
   const featuredDiscussion = useMemo(() => {
+    if (discussions.length === 0) return null;
     return (
-      discussions.find((d) => d.id === 'disc-dbms-norm') ||
-      discussions.find((d) => d.isSolved && d.voteCount >= 40) ||
+      discussions.find((d) => (d.id || d._id) === 'disc-dbms-norm') ||
+      discussions.find((d) => d.isSolved && d.voteCount >= 4) ||
+      discussions.find((d) => d.title.toLowerCase().includes('normalization')) ||
       discussions[0]
     );
   }, [discussions]);
 
-  // Open discussion detail & increment view count locally
-  const handleOpenDiscussion = (disc) => {
+  // Open discussion detail & increment view count via API
+  const handleOpenDiscussion = async (disc) => {
+    const discId = disc.id || disc._id;
+    const currentViewCount = Number(disc.viewCount || disc.views || 0);
+
     const updated = {
       ...disc,
-      viewCount: disc.viewCount + 1,
+      viewCount: currentViewCount + 1,
+      views: currentViewCount + 1,
     };
     setSelectedDiscussion(updated);
-    setDiscussions((prev) => prev.map((d) => (d.id === disc.id ? updated : d)));
+    setDiscussions((prev) =>
+      prev.map((d) => ((d.id || d._id) === discId ? updated : d))
+    );
+
+    // Call API view endpoint and fetch latest details
+    try {
+      discussionApi.viewDiscussion(discId).catch(() => {});
+      const freshRes = await discussionApi.getDiscussionById(discId);
+      if (freshRes.data?.data) {
+        setSelectedDiscussion(freshRes.data.data);
+      }
+    } catch (err) {
+      console.warn('Could not refresh full discussion details:', err);
+    }
   };
 
   // Open discussion and scroll to answer section
@@ -108,10 +217,11 @@ export const Discussions = () => {
   };
 
   // Discussion Upvote Toggle
-  const handleUpvoteDiscussion = (discussionId) => {
+  const handleUpvoteDiscussion = async (discussionId) => {
     const hasUpvoted = Boolean(userUpvotedDiscussions[discussionId]);
     const voteDelta = hasUpvoted ? -1 : 1;
 
+    // Optimistic UI update
     setUserUpvotedDiscussions((prev) => ({
       ...prev,
       [discussionId]: !hasUpvoted,
@@ -119,29 +229,64 @@ export const Discussions = () => {
 
     setDiscussions((prev) =>
       prev.map((d) => {
-        if (d.id === discussionId) {
+        if ((d.id || d._id) === discussionId) {
           return {
             ...d,
             voteCount: Math.max(0, d.voteCount + voteDelta),
+            isVotedByCurrentUser: !hasUpvoted,
           };
         }
         return d;
       })
     );
 
-    if (selectedDiscussion && selectedDiscussion.id === discussionId) {
+    if (selectedDiscussion && (selectedDiscussion.id || selectedDiscussion._id) === discussionId) {
       setSelectedDiscussion((prev) => ({
         ...prev,
         voteCount: Math.max(0, prev.voteCount + voteDelta),
+        isVotedByCurrentUser: !hasUpvoted,
       }));
+    }
+
+    try {
+      const res = await discussionApi.voteDiscussion(discussionId);
+      const serverVoteCount = res.data?.data?.voteCount;
+      const serverIsVoted = res.data?.data?.isVotedByCurrentUser;
+
+      if (serverVoteCount !== undefined) {
+        setDiscussions((prev) =>
+          prev.map((d) =>
+            (d.id || d._id) === discussionId
+              ? { ...d, voteCount: serverVoteCount, isVotedByCurrentUser: serverIsVoted }
+              : d
+          )
+        );
+        if (selectedDiscussion && (selectedDiscussion.id || selectedDiscussion._id) === discussionId) {
+          setSelectedDiscussion((prev) => ({
+            ...prev,
+            voteCount: serverVoteCount,
+            isVotedByCurrentUser: serverIsVoted,
+          }));
+        }
+      }
+    } catch (err) {
+      console.error('Discussion vote failed:', err);
+      // Revert optimistic update
+      setUserUpvotedDiscussions((prev) => ({
+        ...prev,
+        [discussionId]: hasUpvoted,
+      }));
+      fetchDiscussions();
+      showToast('Could not record vote. Please check your connection.');
     }
   };
 
   // Answer Upvote Toggle
-  const handleUpvoteAnswer = (discussionId, answerId) => {
+  const handleUpvoteAnswer = async (discussionId, answerId) => {
     const hasUpvoted = Boolean(userUpvotedAnswers[answerId]);
     const voteDelta = hasUpvoted ? -1 : 1;
 
+    // Optimistic UI update
     setUserUpvotedAnswers((prev) => ({
       ...prev,
       [answerId]: !hasUpvoted,
@@ -149,10 +294,11 @@ export const Discussions = () => {
 
     const updateAnswers = (answersList) =>
       answersList.map((a) => {
-        if (a.id === answerId) {
+        if ((a.id || a._id) === answerId) {
           return {
             ...a,
             voteCount: Math.max(0, a.voteCount + voteDelta),
+            isVotedByCurrentUser: !hasUpvoted,
           };
         }
         return a;
@@ -160,103 +306,126 @@ export const Discussions = () => {
 
     setDiscussions((prev) =>
       prev.map((d) => {
-        if (d.id === discussionId) {
+        if ((d.id || d._id) === discussionId) {
           return {
             ...d,
-            answers: updateAnswers(d.answers),
+            answers: updateAnswers(d.answers || []),
           };
         }
         return d;
       })
     );
 
-    if (selectedDiscussion && selectedDiscussion.id === discussionId) {
+    if (selectedDiscussion && (selectedDiscussion.id || selectedDiscussion._id) === discussionId) {
       setSelectedDiscussion((prev) => ({
         ...prev,
-        answers: updateAnswers(prev.answers),
+        answers: updateAnswers(prev.answers || []),
       }));
     }
-  };
 
-  // Toggle Accept / Unaccept Answer (mock control)
-  const handleToggleAcceptAnswer = (discussionId, answerId) => {
-    let nowAccepted = false;
+    try {
+      const res = await discussionApi.voteAnswer(discussionId, answerId);
+      const serverVoteCount = res.data?.data?.voteCount;
+      const serverIsVoted = res.data?.data?.isVotedByCurrentUser;
 
-    const updateDiscussionObj = (disc) => {
-      const updatedAnswers = disc.answers.map((a) => {
-        if (a.id === answerId) {
-          const nextState = !a.isAccepted;
-          nowAccepted = nextState;
-          return { ...a, isAccepted: nextState };
+      if (serverVoteCount !== undefined) {
+        const syncAnswers = (answersList) =>
+          answersList.map((a) =>
+            (a.id || a._id) === answerId
+              ? { ...a, voteCount: serverVoteCount, isVotedByCurrentUser: serverIsVoted }
+              : a
+          );
+
+        setDiscussions((prev) =>
+          prev.map((d) =>
+            (d.id || d._id) === discussionId
+              ? { ...d, answers: syncAnswers(d.answers || []) }
+              : d
+          )
+        );
+        if (selectedDiscussion && (selectedDiscussion.id || selectedDiscussion._id) === discussionId) {
+          setSelectedDiscussion((prev) => ({
+            ...prev,
+            answers: syncAnswers(prev.answers || []),
+          }));
         }
-        // Only one accepted answer allowed
-        return { ...a, isAccepted: false };
-      });
-
-      const acceptedAns = updatedAnswers.find((a) => a.isAccepted);
-
-      return {
-        ...disc,
-        answers: updatedAnswers,
-        isSolved: Boolean(acceptedAns),
-        acceptedAnswerId: acceptedAns ? acceptedAns.id : null,
-      };
-    };
-
-    setDiscussions((prev) =>
-      prev.map((d) => (d.id === discussionId ? updateDiscussionObj(d) : d))
-    );
-
-    if (selectedDiscussion && selectedDiscussion.id === discussionId) {
-      setSelectedDiscussion((prev) => updateDiscussionObj(prev));
+      }
+    } catch (err) {
+      console.error('Answer vote failed:', err);
+      // Revert optimistic update
+      setUserUpvotedAnswers((prev) => ({
+        ...prev,
+        [answerId]: hasUpvoted,
+      }));
+      showToast('Could not record vote on answer.');
     }
-
-    showToast(
-      nowAccepted
-        ? 'Answer marked as accepted solution!'
-        : 'Accepted solution marker removed.'
-    );
   };
 
-  // Post New Answer
-  const handleSubmitAnswer = (discussionId, body) => {
-    const newAnswer = {
-      id: `ans-${Date.now()}`,
-      author: 'Shreyas Rao',
-      authorInitials: 'SR',
-      authorDepartment: 'Computer Science',
-      body,
-      createdAt: 'Just now',
-      voteCount: 0,
-      isAccepted: false,
-    };
+  // Toggle Accept / Unaccept Answer via API
+  const handleToggleAcceptAnswer = async (discussionId, answerId) => {
+    try {
+      const res = await discussionApi.acceptAnswer(discussionId, answerId);
+      const updatedDiscussion = res.data?.data?.discussion;
+      const isAccepted = res.data?.data?.isAccepted;
 
-    const updateDiscussionObj = (disc) => ({
-      ...disc,
-      answerCount: disc.answerCount + 1,
-      answers: [...disc.answers, newAnswer],
-    });
+      if (updatedDiscussion) {
+        setDiscussions((prev) =>
+          prev.map((d) => ((d.id || d._id) === discussionId ? updatedDiscussion : d))
+        );
+        if (selectedDiscussion && (selectedDiscussion.id || selectedDiscussion._id) === discussionId) {
+          setSelectedDiscussion(updatedDiscussion);
+        }
+      }
 
-    setDiscussions((prev) =>
-      prev.map((d) => (d.id === discussionId ? updateDiscussionObj(d) : d))
-    );
-
-    if (selectedDiscussion && selectedDiscussion.id === discussionId) {
-      setSelectedDiscussion((prev) => updateDiscussionObj(prev));
+      showToast(
+        isAccepted
+          ? 'Answer marked as accepted solution!'
+          : 'Accepted solution marker removed.'
+      );
+    } catch (err) {
+      console.error('Toggle accept answer failed:', err);
+      const msg = err.response?.data?.message || 'Failed to update accepted answer.';
+      showToast(msg);
     }
-
-    showToast('Your answer has been posted to the cohort!');
   };
 
-  // Create New Discussion
-  const handleCreateDiscussion = (newDiscussion) => {
-    setDiscussions((prev) => [newDiscussion, ...prev]);
+  // Post New Answer via API
+  const handleSubmitAnswer = async (discussionId, body) => {
+    try {
+      const res = await discussionApi.addAnswer(discussionId, { content: body, body });
+      const updatedDiscussion = res.data?.data?.discussion;
+
+      if (updatedDiscussion) {
+        setDiscussions((prev) =>
+          prev.map((d) => ((d.id || d._id) === discussionId ? updatedDiscussion : d))
+        );
+        if (selectedDiscussion && (selectedDiscussion.id || selectedDiscussion._id) === discussionId) {
+          setSelectedDiscussion(updatedDiscussion);
+        }
+      }
+
+      showToast('Your answer has been posted to the cohort!');
+    } catch (err) {
+      console.error('Submit answer failed:', err);
+      const msg = err.response?.data?.message || 'Failed to post answer.';
+      showToast(msg);
+    }
+  };
+
+  // Create New Discussion via API
+  const handleCreateDiscussion = async (newDiscussionPayload) => {
+    const res = await discussionApi.createDiscussion(newDiscussionPayload);
+    const created = res.data?.data;
+    if (created) {
+      setDiscussions((prev) => [created, ...prev]);
+    }
     showToast('Question published successfully!');
   };
 
   // Reset Filters
   const handleClearFilters = () => {
     setSearchQuery('');
+    setDebouncedSearch('');
     setSelectedSubject('All Subjects');
     setSelectedStatus('all');
     setSortBy('recent');
@@ -302,25 +471,11 @@ export const Discussions = () => {
     return count;
   }, [searchQuery, selectedSubject, selectedStatus, sortBy, myDiscussionsOnly, selectedTopic]);
 
-  // Filter & Sort Pipeline
+  // Client-side quick filter/sort fallback ensuring immediate responsive updates
   const filteredDiscussions = useMemo(() => {
     return discussions
       .filter((disc) => {
-        // My Discussions toggle
-        if (myDiscussionsOnly) {
-          if (disc.author !== 'Shreyas Rao' && disc.authorInitials !== 'SR') {
-            return false;
-          }
-        }
-
-        // Subject filter
-        if (selectedSubject !== 'All Subjects') {
-          if (disc.subject.toLowerCase() !== selectedSubject.toLowerCase()) {
-            return false;
-          }
-        }
-
-        // Solved status filter
+        // Solved status filter client check
         if (selectedStatus === 'solved' && !disc.isSolved) {
           return false;
         }
@@ -328,27 +483,9 @@ export const Discussions = () => {
           return false;
         }
 
-        // Trending topic filter
-        if (selectedTopic) {
-          const tLower = selectedTopic.toLowerCase();
-          const matchesSubject = disc.subject.toLowerCase().includes(tLower);
-          const matchesTags = disc.tags.some((t) => t.toLowerCase().includes(tLower));
-          const matchesTitle = disc.title.toLowerCase().includes(tLower);
-          if (!matchesSubject && !matchesTags && !matchesTitle) {
-            return false;
-          }
-        }
-
-        // Search Query (title, body, author, subject, tags)
-        if (searchQuery.trim()) {
-          const query = searchQuery.toLowerCase().trim();
-          const matchesTitle = disc.title.toLowerCase().includes(query);
-          const matchesBody = disc.body.toLowerCase().includes(query);
-          const matchesAuthor = disc.author.toLowerCase().includes(query);
-          const matchesSubject = disc.subject.toLowerCase().includes(query);
-          const matchesTags = disc.tags.some((t) => t.toLowerCase().includes(query));
-
-          if (!matchesTitle && !matchesBody && !matchesAuthor && !matchesSubject && !matchesTags) {
+        // Subject filter client check
+        if (selectedSubject !== 'All Subjects') {
+          if (disc.subject?.toLowerCase() !== selectedSubject.toLowerCase()) {
             return false;
           }
         }
@@ -365,18 +502,9 @@ export const Discussions = () => {
         if (sortBy === 'viewed') {
           return b.viewCount - a.viewCount;
         }
-        // Default 'recent'
-        return b.id.localeCompare(a.id);
+        return 0;
       });
-  }, [
-    discussions,
-    myDiscussionsOnly,
-    selectedSubject,
-    selectedStatus,
-    selectedTopic,
-    searchQuery,
-    sortBy,
-  ]);
+  }, [discussions, selectedStatus, selectedSubject, sortBy]);
 
   return (
     <AppLayout>
@@ -391,7 +519,10 @@ export const Discussions = () => {
             onViewDiscussion={handleOpenDiscussion}
             onUpvote={handleUpvoteDiscussion}
             onAnswerQuestion={handleAnswerQuestion}
-            hasUpvoted={Boolean(userUpvotedDiscussions[featuredDiscussion.id])}
+            hasUpvoted={Boolean(
+              userUpvotedDiscussions[featuredDiscussion.id || featuredDiscussion._id] ||
+                featuredDiscussion.isVotedByCurrentUser
+            )}
           />
         )}
 
@@ -421,27 +552,52 @@ export const Discussions = () => {
         <section className="disc-feed-section" aria-label="Academic Discussion Feed">
           <div className="disc-feed-header">
             <span className="disc-feed-count">
-              Showing {filteredDiscussions.length} {filteredDiscussions.length === 1 ? 'discussion' : 'discussions'}
+              Showing {filteredDiscussions.length}{' '}
+              {filteredDiscussions.length === 1 ? 'discussion' : 'discussions'}
               {activeFilterCount > 0 && ' (filtered)'}
             </span>
           </div>
 
-          {filteredDiscussions.length === 0 ? (
+          {isLoading && discussions.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-20 text-ink-faint">
+              <Loader2 size={32} className="animate-spin text-pine mb-3" aria-hidden="true" />
+              <p className="text-sm font-medium">Loading academic discussions...</p>
+            </div>
+          ) : errorMessage && discussions.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-16 text-center" role="alert">
+              <AlertCircle size={36} className="text-rust mb-3" aria-hidden="true" />
+              <h3 className="serif text-lg font-bold text-rust mb-1">Failed to load discussions</h3>
+              <p className="text-sm text-ink-soft max-w-md mb-4">{errorMessage}</p>
+              <button
+                type="button"
+                className="disc-btn disc-btn-outline inline-flex items-center gap-2"
+                onClick={fetchDiscussions}
+              >
+                <RotateCcw size={14} aria-hidden="true" />
+                <span>Try Again</span>
+              </button>
+            </div>
+          ) : filteredDiscussions.length === 0 ? (
             <EmptyDiscussions
               onResetFilters={handleClearFilters}
               onAskQuestionClick={() => setIsCreateModalOpen(true)}
             />
           ) : (
             <div className="disc-feed-list">
-              {filteredDiscussions.map((disc) => (
-                <DiscussionCard
-                  key={disc.id}
-                  discussion={disc}
-                  onViewDiscussion={handleOpenDiscussion}
-                  onUpvote={handleUpvoteDiscussion}
-                  hasUpvoted={Boolean(userUpvotedDiscussions[disc.id])}
-                />
-              ))}
+              {filteredDiscussions.map((disc) => {
+                const discId = disc.id || disc._id;
+                return (
+                  <DiscussionCard
+                    key={discId}
+                    discussion={disc}
+                    onViewDiscussion={handleOpenDiscussion}
+                    onUpvote={handleUpvoteDiscussion}
+                    hasUpvoted={Boolean(
+                      userUpvotedDiscussions[discId] || disc.isVotedByCurrentUser
+                    )}
+                  />
+                );
+              })}
             </div>
           )}
         </section>
@@ -457,7 +613,11 @@ export const Discussions = () => {
           onSubmitAnswer={handleSubmitAnswer}
           onNavigateToProject={handleNavigateToProject}
           onNavigateToResource={handleNavigateToResource}
-          userUpvotedDiscussion={Boolean(selectedDiscussion && userUpvotedDiscussions[selectedDiscussion.id])}
+          userUpvotedDiscussion={Boolean(
+            selectedDiscussion &&
+              (userUpvotedDiscussions[selectedDiscussion.id || selectedDiscussion._id] ||
+                selectedDiscussion.isVotedByCurrentUser)
+          )}
           userUpvotedAnswers={userUpvotedAnswers}
         />
 

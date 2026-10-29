@@ -15,6 +15,11 @@ export const AcademicInfo = ({ profile }) => {
     academicFocus = 'MERN Stack · DSA · AI Applications',
   } = profile;
 
+  const displaySemester =
+    typeof semester === 'number'
+      ? `Semester ${semester}`
+      : semester || 'Semester 1';
+
   return (
     <article className="profile-card" aria-labelledby="academic-heading">
       <div className="profile-card-header">
@@ -38,7 +43,7 @@ export const AcademicInfo = ({ profile }) => {
           </div>
           <div className="academic-item-content">
             <span className="academic-item-label">Institution</span>
-            <span className="academic-item-value">{college}</span>
+            <span className="academic-item-value">{college || 'Institution'}</span>
           </div>
         </div>
 
@@ -48,7 +53,7 @@ export const AcademicInfo = ({ profile }) => {
           </div>
           <div className="academic-item-content">
             <span className="academic-item-label">Department</span>
-            <span className="academic-item-value">{department}</span>
+            <span className="academic-item-value">{department || 'Department'}</span>
           </div>
         </div>
 
@@ -58,7 +63,7 @@ export const AcademicInfo = ({ profile }) => {
           </div>
           <div className="academic-item-content">
             <span className="academic-item-label">Current Term</span>
-            <span className="academic-item-value">{semester}</span>
+            <span className="academic-item-value">{displaySemester}</span>
           </div>
         </div>
 

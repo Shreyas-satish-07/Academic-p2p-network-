@@ -10,9 +10,12 @@ export const AvailabilityCard = ({ availability }) => {
   const {
     status = 'Available for collaboration',
     isAvailable = true,
-    weekdays = '6:00 PM – 9:00 PM',
-    weekends = '10:00 AM – 5:00 PM',
+    weekdays,
+    weekends,
   } = availability || {};
+
+  const displayWeekdays = weekdays && weekdays.trim() ? weekdays : 'Flexible / As scheduled';
+  const displayWeekends = weekends && weekends.trim() ? weekends : 'Flexible / As scheduled';
 
   return (
     <article className="profile-card" aria-labelledby="availability-heading">
@@ -47,7 +50,7 @@ export const AvailabilityCard = ({ availability }) => {
             <Calendar size={14} className="slot-icon" aria-hidden="true" />
             <span className="slot-day-label">Monday – Friday</span>
           </div>
-          <div className="slot-time-value">{weekdays}</div>
+          <div className="slot-time-value">{displayWeekdays}</div>
           <span className="slot-subtext">Evening study sprints & async reviews</span>
         </div>
 
@@ -56,7 +59,7 @@ export const AvailabilityCard = ({ availability }) => {
             <Calendar size={14} className="slot-icon" aria-hidden="true" />
             <span className="slot-day-label">Saturday – Sunday</span>
           </div>
-          <div className="slot-time-value">{weekends}</div>
+          <div className="slot-time-value">{displayWeekends}</div>
           <span className="slot-subtext">Extended hackathon & project build hours</span>
         </div>
       </div>

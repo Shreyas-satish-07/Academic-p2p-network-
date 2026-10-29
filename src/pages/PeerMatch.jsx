@@ -1,6 +1,6 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import { useLocation } from 'react-router-dom';
-import { CheckCircle2, ArrowUpDown } from 'lucide-react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import { useLocation, useSearchParams } from 'react-router-dom';
+import { CheckCircle2, ArrowUpDown, RefreshCw } from 'lucide-react';
 import AppLayout from '../components/layout/AppLayout';
 import PeerMatchHero from '../features/peer-match/components/PeerMatchHero';
 import FeaturedMatch from '../features/peer-match/components/FeaturedMatch';
@@ -9,47 +9,45 @@ import MatchCard from '../features/peer-match/components/MatchCard';
 import CollaborationSuggestions from '../features/peer-match/components/CollaborationSuggestions';
 import EmptyMatches from '../features/peer-match/components/EmptyMatches';
 import PeerProfileModal from '../features/peer-match/components/PeerProfileModal';
+import { useAuth } from '../context/useAuth';
+import api from '../services/api';
 
-import {
-  CURRENT_USER,
-  FEATURED_PEER,
-  PEER_MATCHES,
-  SORT_OPTIONS,
-} from '../features/peer-match/peerMatchData';
-
+import { SORT_OPTIONS } from '../features/peer-match/peerMatchData';
 import '../features/peer-match/peerMatch.css';
 
 /**
  * PeerMatch discovery page component
- * 
- * Future Backend Architecture (Express + MongoDB):
- * GET  /api/users/matches      -> Returns algorithmically scored peer list for req.user
- * GET  /api/users/:id          -> Returns full user profile
- * POST /api/connections/:userId -> Toggles/updates connection request status between two students
+ * Connects directly to MongoDB backend /api/users to discover compatible student peers
+ * with explainable algorithmic match scoring.
  */
 export const PeerMatch = () => {
   const location = useLocation();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const { user: currentUser } = useAuth();
 
-  // Filter state
-  const [searchQuery, setSearchQuery] = useState('');
-  const [selectedDept, setSelectedDept] = useState('All Departments');
-  const [selectedSemester, setSelectedSemester] = useState('All Semesters');
-  const [selectedSkills, setSelectedSkills] = useState([]);
-  const [selectedInterest, setSelectedInterest] = useState('All Interests');
-  const [selectedAvailability, setSelectedAvailability] = useState('All Times');
-  const [minScore, setMinScore] = useState(0);
+  // Filter state synchronized with URL query parameters
+  const [searchQuery, setSearchQuery] = useState(() => searchParams.get('search') || '');
+  const [selectedDept, setSelectedDept] = useState(() => searchParams.get('dept') || 'All Departments');
+  const [selectedSemester, setSelectedSemester] = useState(() => searchParams.get('sem') || 'All Semesters');
+  const [selectedSkills, setSelectedSkills] = useState(() => {
+    const s = searchParams.get('skills');
+    return s ? s.split(',').map((x) => x.trim()).filter(Boolean) : [];
+  });
+  const [selectedInterest, setSelectedInterest] = useState(() => searchParams.get('interest') || 'All Interests');
+  const [selectedAvailability, setSelectedAvailability] = useState(() => searchParams.get('avail') || 'All Times');
+  const [minScore, setMinScore] = useState(() => parseInt(searchParams.get('minScore') || '0', 10));
 
-  // Visible Sort Control
-  const [sortBy, setSortBy] = useState('best-match');
+  // Sort state
+  const [sortBy, setSortBy] = useState(() => searchParams.get('sort') || 'best-match');
+
+  // Peer records & pagination from API
+  const [peers, setPeers] = useState([]);
+  const [_pagination, setPagination] = useState({ page: 1, limit: 12, total: 0, totalPages: 0 });
+  const [isLoading, setIsLoading] = useState(true);
+  const [errorMessage, setErrorMessage] = useState(null);
 
   // Connection state map: { [peerId]: 'idle' | 'request-sent' | 'connected' }
-  const [connectionStatuses, setConnectionStatuses] = useState(() => {
-    const initialMap = {};
-    PEER_MATCHES.forEach((peer) => {
-      initialMap[peer.id] = peer.collaborationStatus || 'idle';
-    });
-    return initialMap;
-  });
+  const [connectionStatuses, setConnectionStatuses] = useState({});
 
   // Profile modal state
   const [viewingPeer, setViewingPeer] = useState(null);
@@ -57,12 +55,53 @@ export const PeerMatch = () => {
   // Toast notification
   const [toastMessage, setToastMessage] = useState(null);
 
-  // Parse location state passed from Dashboard or search bar
+  // Helper to sync filter changes to URL search parameters
+  const syncUrlParams = useCallback(
+    (overrides = {}) => {
+      const state = {
+        search: searchQuery,
+        dept: selectedDept,
+        sem: selectedSemester,
+        skills: selectedSkills,
+        interest: selectedInterest,
+        avail: selectedAvailability,
+        minScore: minScore,
+        sort: sortBy,
+        ...overrides,
+      };
+
+      const params = new URLSearchParams();
+      if (state.search && state.search.trim()) params.set('search', state.search.trim());
+      if (state.dept && state.dept !== 'All Departments') params.set('dept', state.dept);
+      if (state.sem && state.sem !== 'All Semesters') params.set('sem', state.sem);
+      if (Array.isArray(state.skills) && state.skills.length > 0) params.set('skills', state.skills.join(','));
+      if (state.interest && state.interest !== 'All Interests') params.set('interest', state.interest);
+      if (state.avail && state.avail !== 'All Times') params.set('avail', state.avail);
+      if (state.minScore > 0) params.set('minScore', String(state.minScore));
+      if (state.sort && state.sort !== 'best-match') params.set('sort', state.sort);
+
+      setSearchParams(params, { replace: true });
+    },
+    [
+      searchQuery,
+      selectedDept,
+      selectedSemester,
+      selectedSkills,
+      selectedInterest,
+      selectedAvailability,
+      minScore,
+      sortBy,
+      setSearchParams,
+    ]
+  );
+
+  // Handle incoming location navigation state
   useEffect(() => {
     if (location.state) {
       const stateObj = location.state;
       if (stateObj.searchQuery) {
         setSearchQuery(stateObj.searchQuery);
+        syncUrlParams({ search: stateObj.searchQuery });
       }
       if (stateObj.focusSearch) {
         setTimeout(() => {
@@ -72,7 +111,7 @@ export const PeerMatch = () => {
       }
       window.history.replaceState({}, document.title);
     }
-  }, [location.state]);
+  }, [location.state, syncUrlParams]);
 
   const showToast = (message) => {
     setToastMessage(message);
@@ -82,15 +121,67 @@ export const PeerMatch = () => {
   };
 
   /**
-   * Connect state machine:
-   * idle -> request-sent -> connected
-   * Future Backend API Call:
-   * POST /api/connections/:userId
+   * Fetch discoverable student peers from MongoDB API
    */
+  const fetchPeers = useCallback(async () => {
+    try {
+      setIsLoading(true);
+      setErrorMessage(null);
+
+      // Translate frontend sort to API sort parameter
+      let apiSort = 'compatibility';
+      if (sortBy === 'recently-active') apiSort = 'newest';
+      if (sortBy === 'name') apiSort = 'name';
+
+      const params = {
+        page: 1,
+        limit: 100, // Fetch candidates to support frontend minScore slider and pagination
+        sort: apiSort,
+      };
+
+      if (searchQuery.trim()) params.search = searchQuery.trim();
+      if (selectedDept !== 'All Departments') params.department = selectedDept;
+      if (selectedSemester !== 'All Semesters') params.semester = selectedSemester;
+      if (selectedSkills.length > 0) params.skills = selectedSkills.join(',');
+      if (selectedInterest !== 'All Interests') params.interests = selectedInterest;
+      if (selectedAvailability !== 'All Times') params.availability = selectedAvailability;
+
+      const res = await api.get('/users', { params });
+      const studentList = res.data?.data?.students || [];
+      const pageInfo = res.data?.data?.pagination || { page: 1, limit: 12, total: 0, totalPages: 0 };
+
+      setPeers(studentList);
+      setPagination(pageInfo);
+    } catch (err) {
+      console.error('Failed to fetch peer matches:', err);
+      const msg = err.response?.data?.message || 'Could not load student peers. Please check your connection.';
+      setErrorMessage(msg);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [
+    searchQuery,
+    selectedDept,
+    selectedSemester,
+    selectedSkills,
+    selectedInterest,
+    selectedAvailability,
+    sortBy,
+  ]);
+
+  // Debounced fetch on filter/query changes
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      fetchPeers();
+    }, 200);
+    return () => clearTimeout(timer);
+  }, [fetchPeers]);
+
+  // Connection request state machine
   const handleConnect = (peerId) => {
     const currentStatus = connectionStatuses[peerId] || 'idle';
-    const targetPeer = PEER_MATCHES.find((p) => p.id === peerId);
-    const peerName = targetPeer?.name || 'collaborator';
+    const targetPeer = peers.find((p) => (p._id || p.id) === peerId);
+    const peerName = targetPeer?.name || 'peer';
 
     let nextStatus = 'request-sent';
     if (currentStatus === 'idle') {
@@ -110,10 +201,29 @@ export const PeerMatch = () => {
     }));
   };
 
+  /**
+   * Open full peer profile modal using GET /api/users/:id
+   */
+  const handleViewProfile = async (peer) => {
+    const peerId = peer._id || peer.id;
+    setViewingPeer(peer);
+
+    try {
+      const res = await api.get(`/users/${peerId}`);
+      if (res.data?.data?.user) {
+        setViewingPeer(res.data.data.user);
+      }
+    } catch (err) {
+      console.warn('Could not fetch full peer profile from API; showing card data:', err);
+    }
+  };
+
   const handleSkillToggle = (skill) => {
-    setSelectedSkills((prev) =>
-      prev.includes(skill) ? prev.filter((s) => s !== skill) : [...prev, skill]
-    );
+    setSelectedSkills((prev) => {
+      const next = prev.includes(skill) ? prev.filter((s) => s !== skill) : [...prev, skill];
+      syncUrlParams({ skills: next });
+      return next;
+    });
   };
 
   const handleResetFilters = () => {
@@ -124,6 +234,8 @@ export const PeerMatch = () => {
     setSelectedInterest('All Interests');
     setSelectedAvailability('All Times');
     setMinScore(0);
+    setSortBy('best-match');
+    setSearchParams(new URLSearchParams(), { replace: true });
   };
 
   // Count active non-default filters
@@ -147,127 +259,26 @@ export const PeerMatch = () => {
     searchQuery,
   ]);
 
-  // Compute filtered peers
-  const filteredPeers = useMemo(() => {
-    return PEER_MATCHES.filter((peer) => {
-      // 1. Text Search Query
-      if (searchQuery.trim()) {
-        const query = searchQuery.toLowerCase();
-        const matchesName = peer.name.toLowerCase().includes(query);
-        const matchesDept = peer.department.toLowerCase().includes(query);
-        const matchesBio = peer.bio?.toLowerCase().includes(query);
-        const matchesSkills = peer.skills.some((s) => s.toLowerCase().includes(query));
-        const matchesInterests = peer.interests?.some((i) => i.toLowerCase().includes(query));
-        const matchesGoals = peer.projectGoals?.toLowerCase().includes(query);
-
-        if (
-          !matchesName &&
-          !matchesDept &&
-          !matchesBio &&
-          !matchesSkills &&
-          !matchesInterests &&
-          !matchesGoals
-        ) {
-          return false;
-        }
-      }
-
-      // 2. Department Filter
-      if (selectedDept !== 'All Departments' && peer.department !== selectedDept) {
-        return false;
-      }
-
-      // 3. Semester Filter
-      if (selectedSemester !== 'All Semesters') {
-        const targetSemNumber = parseInt(selectedSemester.replace(/\D/g, ''), 10);
-        if (peer.semester !== targetSemNumber) {
-          return false;
-        }
-      }
-
-      // 4. Interest Filter
-      if (selectedInterest !== 'All Interests') {
-        if (!peer.interests.includes(selectedInterest)) {
-          return false;
-        }
-      }
-
-      // 5. Minimum Compatibility Score
-      if (minScore > 0 && peer.matchScore < minScore) {
-        return false;
-      }
-
-      // 6. Availability Schedule
-      if (selectedAvailability !== 'All Times') {
-        if (!peer.availability.includes(selectedAvailability)) {
-          return false;
-        }
-      }
-
-      // 7. Technical Skills (peer must possess all selected skills)
-      if (selectedSkills.length > 0) {
-        const hasAllSelected = selectedSkills.every((reqSkill) =>
-          peer.skills.includes(reqSkill)
-        );
-        if (!hasAllSelected) return false;
-      }
-
-      return true;
+  // Apply minimum score threshold
+  const displayedPeers = useMemo(() => {
+    if (minScore <= 0) return peers;
+    return peers.filter((p) => {
+      const score = p.compatibilityScore ?? p.matchScore ?? 0;
+      return score >= minScore;
     });
-  }, [
-    searchQuery,
-    selectedDept,
-    selectedSemester,
-    selectedInterest,
-    minScore,
-    selectedAvailability,
-    selectedSkills,
-  ]);
+  }, [peers, minScore]);
 
-  // Sort filtered peers
-  const sortedPeers = useMemo(() => {
-    const list = [...filteredPeers];
-    switch (sortBy) {
-      case 'recently-active':
-        // Online peers first, then by match score
-        return list.sort((a, b) => {
-          if (a.isOnline === b.isOnline) return b.matchScore - a.matchScore;
-          return a.isOnline ? -1 : 1;
-        });
-      case 'same-dept':
-        // Same department as CURRENT_USER first, then by score
-        return list.sort((a, b) => {
-          const aSame = a.department === CURRENT_USER.department;
-          const bSame = b.department === CURRENT_USER.department;
-          if (aSame === bSame) return b.matchScore - a.matchScore;
-          return aSame ? -1 : 1;
-        });
-      case 'availability':
-        // Shared availability first, then by score
-        return list.sort((a, b) => {
-          const aOverlap = a.availability.some((av) => CURRENT_USER.availability.includes(av));
-          const bOverlap = b.availability.some((av) => CURRENT_USER.availability.includes(av));
-          if (aOverlap === bOverlap) return b.matchScore - a.matchScore;
-          return aOverlap ? -1 : 1;
-        });
-      case 'best-match':
-      default:
-        return list.sort((a, b) => b.matchScore - a.matchScore);
-    }
-  }, [filteredPeers, sortBy]);
-
-  // Featured peer: Ananya Rao if she is in filtered list, else highest scoring match
+  // Featured peer is the highest scored peer among displayed
   const currentFeatured = useMemo(() => {
-    if (sortedPeers.some((p) => p.id === FEATURED_PEER.id)) {
-      return FEATURED_PEER;
-    }
-    return sortedPeers.length > 0 ? sortedPeers[0] : null;
-  }, [sortedPeers]);
+    return displayedPeers.length > 0 ? displayedPeers[0] : null;
+  }, [displayedPeers]);
 
   // Remaining peers for the grid
   const gridPeers = useMemo(() => {
-    return sortedPeers.filter((p) => p.id !== currentFeatured?.id);
-  }, [sortedPeers, currentFeatured]);
+    if (!currentFeatured) return [];
+    const featuredId = currentFeatured._id || currentFeatured.id;
+    return displayedPeers.filter((p) => (p._id || p.id) !== featuredId);
+  }, [displayedPeers, currentFeatured]);
 
   const handleSelectPeerFromSuggestion = (peerId) => {
     const el = document.getElementById(`peer-name-${peerId}`);
@@ -282,18 +293,21 @@ export const PeerMatch = () => {
         {/* Section 1: Hero Header */}
         <PeerMatchHero
           searchQuery={searchQuery}
-          onSearchChange={setSearchQuery}
-          matchCount={sortedPeers.length}
-          currentUser={CURRENT_USER}
+          onSearchChange={(val) => {
+            setSearchQuery(val);
+            syncUrlParams({ search: val });
+          }}
+          matchCount={displayedPeers.length}
+          currentUser={currentUser}
         />
 
-        {/* Section 2: Featured Best Match (Ananya Rao) */}
-        {currentFeatured && (
+        {/* Section 2: Featured Best Match */}
+        {currentFeatured && !isLoading && (
           <FeaturedMatch
             peer={currentFeatured}
-            collaborationStatus={connectionStatuses[currentFeatured.id] || 'idle'}
+            collaborationStatus={connectionStatuses[currentFeatured._id || currentFeatured.id] || 'idle'}
             onConnect={handleConnect}
-            onViewProfile={(p) => setViewingPeer(p)}
+            onViewProfile={handleViewProfile}
           />
         )}
 
@@ -301,19 +315,37 @@ export const PeerMatch = () => {
         <div className="peer-browser-layout">
           <MatchFilters
             searchQuery={searchQuery}
-            onSearchChange={setSearchQuery}
+            onSearchChange={(val) => {
+              setSearchQuery(val);
+              syncUrlParams({ search: val });
+            }}
             selectedDept={selectedDept}
-            onDeptChange={setSelectedDept}
+            onDeptChange={(val) => {
+              setSelectedDept(val);
+              syncUrlParams({ dept: val });
+            }}
             selectedSemester={selectedSemester}
-            onSemesterChange={setSelectedSemester}
+            onSemesterChange={(val) => {
+              setSelectedSemester(val);
+              syncUrlParams({ sem: val });
+            }}
             selectedSkills={selectedSkills}
             onSkillToggle={handleSkillToggle}
             selectedInterest={selectedInterest}
-            onInterestChange={setSelectedInterest}
+            onInterestChange={(val) => {
+              setSelectedInterest(val);
+              syncUrlParams({ interest: val });
+            }}
             selectedAvailability={selectedAvailability}
-            onAvailabilityChange={setSelectedAvailability}
+            onAvailabilityChange={(val) => {
+              setSelectedAvailability(val);
+              syncUrlParams({ avail: val });
+            }}
             minScore={minScore}
-            onMinScoreChange={setMinScore}
+            onMinScoreChange={(val) => {
+              setMinScore(val);
+              syncUrlParams({ minScore: val });
+            }}
             onResetFilters={handleResetFilters}
             activeFilterCount={activeFilterCount}
           />
@@ -331,7 +363,10 @@ export const PeerMatch = () => {
                     key={opt.value}
                     type="button"
                     className={`sort-option-btn ${sortBy === opt.value ? 'sort-btn-active' : ''}`}
-                    onClick={() => setSortBy(opt.value)}
+                    onClick={() => {
+                      setSortBy(opt.value);
+                      syncUrlParams({ sort: opt.value });
+                    }}
                     role="radio"
                     aria-checked={sortBy === opt.value}
                   >
@@ -341,21 +376,85 @@ export const PeerMatch = () => {
               </div>
             </div>
 
+            {/* Error / Retry Alert */}
+            {errorMessage && !isLoading && (
+              <div
+                className="announce"
+                role="alert"
+                style={{
+                  marginBottom: '16px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  gap: '12px',
+                  flexWrap: 'wrap',
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span className="tag">NOTICE</span>
+                  <span>{errorMessage}</span>
+                </div>
+                <button
+                  type="button"
+                  className="profile-btn profile-btn-secondary"
+                  style={{ padding: '6px 14px', fontSize: '12.5px' }}
+                  onClick={fetchPeers}
+                >
+                  <RefreshCw size={13} aria-hidden="true" />
+                  <span>Retry</span>
+                </button>
+              </div>
+            )}
+
+            {/* Loading Indicator */}
+            {isLoading && (
+              <div
+                style={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  minHeight: '40vh',
+                  gap: '14px',
+                }}
+                role="status"
+                aria-live="polite"
+              >
+                <div
+                  style={{
+                    width: '38px',
+                    height: '38px',
+                    border: '3px solid rgba(47, 93, 80, 0.2)',
+                    borderTopColor: 'var(--pine, #2f5d50)',
+                    borderRadius: '50%',
+                    animation: 'spin 0.8s linear infinite',
+                  }}
+                  aria-hidden="true"
+                />
+                <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+                <span style={{ fontSize: '14px', fontWeight: 600, color: 'var(--ink-soft)' }}>
+                  Discovering compatible peers from MongoDB...
+                </span>
+              </div>
+            )}
+
             {/* Grid or Empty State */}
-            {sortedPeers.length === 0 ? (
+            {!isLoading && displayedPeers.length === 0 ? (
               <EmptyMatches onResetFilters={handleResetFilters} />
             ) : (
-              <div className="peer-cards-grid" role="list">
-                {gridPeers.map((peer) => (
-                  <MatchCard
-                    key={peer.id}
-                    peer={peer}
-                    collaborationStatus={connectionStatuses[peer.id] || 'idle'}
-                    onConnect={handleConnect}
-                    onViewProfile={(p) => setViewingPeer(p)}
-                  />
-                ))}
-              </div>
+              !isLoading && (
+                <div className="peer-cards-grid" role="list">
+                  {gridPeers.map((peer) => (
+                    <MatchCard
+                      key={peer._id || peer.id}
+                      peer={peer}
+                      collaborationStatus={connectionStatuses[peer._id || peer.id] || 'idle'}
+                      onConnect={handleConnect}
+                      onViewProfile={handleViewProfile}
+                    />
+                  ))}
+                </div>
+              )
             )}
           </main>
         </div>
@@ -369,7 +468,7 @@ export const PeerMatch = () => {
         {viewingPeer && (
           <PeerProfileModal
             peer={viewingPeer}
-            collaborationStatus={connectionStatuses[viewingPeer.id] || 'idle'}
+            collaborationStatus={connectionStatuses[viewingPeer._id || viewingPeer.id] || 'idle'}
             onConnect={handleConnect}
             onClose={() => setViewingPeer(null)}
           />

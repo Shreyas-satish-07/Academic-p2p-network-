@@ -17,13 +17,14 @@ import MatchExplanation from './MatchExplanation';
 /**
  * FeaturedMatch component
  * 
- * Section 2: Featured best match
- * - Makes Ananya Rao the featured profile.
- * - Displays avatar initials, match percentage, key skills, common interests, online status, and short bio.
- * - Actions:
- *   - View Profile
- *   - Connect (state machine: idle -> request-sent -> connected)
- *   - Why this match? (expands MatchExplanation)
+ * Displays:
+ * - Avatar (image or initials)
+ * - Match percentage
+ * - Key skills and common interests
+ * - Online status
+ * - Short bio
+ * - Connect CTA
+ * - Why this match? accordion
  */
 export const FeaturedMatch = ({
   peer,
@@ -34,6 +35,27 @@ export const FeaturedMatch = ({
   const [showExplanation, setShowExplanation] = useState(false);
 
   if (!peer) return null;
+
+  const peerId = peer._id || peer.id;
+  const matchScore = peer.compatibilityScore ?? peer.matchScore ?? 0;
+  const isOnline = peer.isOnline !== undefined ? peer.isOnline : true;
+
+  const formatAvailability = (avail) => {
+    if (!avail) return 'Flexible schedule';
+    if (Array.isArray(avail)) return avail.join(' & ');
+    if (typeof avail === 'object') {
+      const parts = [avail.weekdays, avail.weekends].filter(Boolean);
+      if (parts.length > 0) return parts.join(' • ');
+      if (Array.isArray(avail.openTo) && avail.openTo.length > 0) {
+        return avail.openTo.join(', ');
+      }
+    }
+    return String(avail);
+  };
+
+  const displayAvailability = formatAvailability(peer.availability);
+  const skillsList = Array.isArray(peer.skills) ? peer.skills : [];
+  const interestsList = Array.isArray(peer.interests) ? peer.interests : [];
 
   // Render dynamic connect button text and icon based on status
   const renderConnectButton = () => {
@@ -63,7 +85,6 @@ export const FeaturedMatch = ({
     }
   };
 
-
   return (
     <section className="featured-match-section" aria-labelledby="featured-match-heading">
       <div className="featured-match-card">
@@ -76,10 +97,10 @@ export const FeaturedMatch = ({
 
           <div
             className="featured-score-pill"
-            aria-label={`${peer.matchScore}% compatibility score`}
+            aria-label={`${matchScore}% compatibility score`}
           >
             <Sparkles size={12} className="text-pine" aria-hidden="true" />
-            <span>{peer.matchScore}% Match</span>
+            <span>{matchScore}% Match</span>
           </div>
         </div>
 
@@ -89,19 +110,32 @@ export const FeaturedMatch = ({
             <div
               className="featured-avatar"
               role="img"
-              aria-label={`${peer.name}'s avatar initials ${peer.initials}`}
+              aria-label={`${peer.name}'s avatar`}
             >
-              <span>{peer.initials}</span>
+              {peer.avatar?.url ? (
+                <img
+                  src={peer.avatar.url}
+                  alt={peer.name}
+                  style={{
+                    width: '100%',
+                    height: '100%',
+                    borderRadius: '50%',
+                    objectFit: 'cover',
+                  }}
+                />
+              ) : (
+                <span>{peer.initials || 'ST'}</span>
+              )}
               <span
                 className={`featured-status-indicator ${
-                  peer.isOnline ? 'indicator-online' : 'indicator-away'
+                  isOnline ? 'indicator-online' : 'indicator-away'
                 }`}
-                title={peer.isOnline ? 'Online now' : 'Currently away'}
-                aria-label={peer.isOnline ? 'Online now' : 'Away'}
+                title={isOnline ? 'Online now' : 'Currently away'}
+                aria-label={isOnline ? 'Online now' : 'Away'}
               />
             </div>
             <span className="featured-status-label">
-              {peer.isOnline ? 'Online now' : 'Away'}
+              {isOnline ? 'Online now' : 'Away'}
             </span>
           </div>
 
@@ -113,32 +147,34 @@ export const FeaturedMatch = ({
                   {peer.name}
                 </h2>
                 <p className="featured-role">
-                  {peer.department} • Semester {peer.semester} (Year {peer.year})
+                  {peer.department} • Semester {peer.semester}
                 </p>
               </div>
             </div>
 
-            <p className="featured-bio">{peer.bio}</p>
+            <p className="featured-bio">{peer.bio || 'Eager to collaborate on student projects.'}</p>
 
             {/* Skills */}
-            <div className="featured-skills-row">
-              <span className="featured-skills-label">Key Skills:</span>
-              <div className="featured-skills-list">
-                {peer.skills.map((skill) => (
-                  <span key={skill} className="featured-skill-pill skill-pill-shared">
-                    <Sparkles size={10} className="shared-star" aria-hidden="true" />
-                    {skill}
-                  </span>
-                ))}
+            {skillsList.length > 0 && (
+              <div className="featured-skills-row">
+                <span className="featured-skills-label">Key Skills:</span>
+                <div className="featured-skills-list">
+                  {skillsList.map((skill) => (
+                    <span key={skill} className="featured-skill-pill skill-pill-shared">
+                      <Sparkles size={10} className="shared-star" aria-hidden="true" />
+                      {skill}
+                    </span>
+                  ))}
+                </div>
               </div>
-            </div>
+            )}
 
             {/* Common Interests */}
-            {peer.interests && peer.interests.length > 0 && (
+            {interestsList.length > 0 && (
               <div className="featured-interests-row">
                 <span className="featured-skills-label">Common Interests:</span>
                 <div className="featured-interests-list">
-                  {peer.interests.map((interest) => (
+                  {interestsList.map((interest) => (
                     <span key={interest} className="featured-interest-pill">
                       <BookOpen size={11} className="mr-1 text-slate" aria-hidden="true" />
                       {interest}
@@ -152,7 +188,7 @@ export const FeaturedMatch = ({
             <div className="featured-meta-row">
               <div className="featured-meta-item">
                 <Calendar size={13} className="text-pine" aria-hidden="true" />
-                <span>Available: {peer.availability.join(' & ')}</span>
+                <span>Available: {displayAvailability}</span>
               </div>
               {peer.projectGoals && (
                 <div className="featured-meta-item">
@@ -171,7 +207,7 @@ export const FeaturedMatch = ({
             <button
               type="button"
               className={`featured-connect-btn connect-btn-${collaborationStatus}`}
-              onClick={() => onConnect(peer.id)}
+              onClick={() => onConnect(peerId)}
               aria-label={`Connect with ${peer.name}. Current status: ${collaborationStatus}`}
             >
               {renderConnectButton()}
@@ -188,27 +224,27 @@ export const FeaturedMatch = ({
               <span>View Profile</span>
             </button>
 
-            {/* 3. Why this match? Button */}
+            {/* 3. Why this match? Accordion Trigger */}
             <button
               type="button"
-              className="featured-explain-btn"
+              className="featured-why-match-btn"
               onClick={() => setShowExplanation(!showExplanation)}
               aria-expanded={showExplanation}
-              aria-controls={`explain-${peer.id}`}
+              aria-label="Toggle compatibility score breakdown"
             >
-              <span>{showExplanation ? 'Hide Breakdown' : 'Why this match?'}</span>
+              <span>{showExplanation ? 'Hide reasons' : 'Why this match?'}</span>
               {showExplanation ? (
-                <ChevronUp size={14} aria-hidden="true" />
+                <ChevronUp size={13} aria-hidden="true" />
               ) : (
-                <ChevronDown size={14} aria-hidden="true" />
+                <ChevronDown size={13} aria-hidden="true" />
               )}
             </button>
           </div>
         </div>
 
-        {/* Expandable Match Explanation */}
+        {/* Explainable AI Scoring Panel */}
         {showExplanation && (
-          <div id={`explain-${peer.id}`} className="featured-explanation-wrapper">
+          <div className="featured-explanation-drawer">
             <MatchExplanation peer={peer} />
           </div>
         )}

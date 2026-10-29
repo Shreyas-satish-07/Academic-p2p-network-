@@ -11,6 +11,7 @@ import {
   Eye,
   Bookmark,
   Calendar,
+  Heart,
 } from 'lucide-react';
 
 /**
@@ -19,6 +20,7 @@ import {
 const getTypeConfig = (type) => {
   switch (type) {
     case 'PDF':
+    case 'Document':
       return {
         icon: <FileText size={18} className="text-pine" aria-hidden="true" />,
         badgeClass: 'type-pdf',
@@ -73,21 +75,26 @@ const getTypeConfig = (type) => {
  * - Subject & tags
  * - Uploader initials & name
  * - Upload date
- * - Download and view counts
- * - Save button, Preview button, Download button
+ * - Download, like, and view counts
+ * - Save button, Preview button, Download/Open button
  */
 export const ResourceCard = ({
   resource,
   onPreview,
   onDownload,
   onToggleSave,
+  onToggleLike,
 }) => {
+  const resId = resource.id || resource._id;
   const typeConfig = getTypeConfig(resource.type);
+  const tagsList = resource.tags || resource.topics || [];
+  const isSaved = Boolean(resource.isSaved || resource.isSavedByCurrentUser);
+  const isLiked = Boolean(resource.isLikedByCurrentUser);
 
   return (
     <article
       className="res-card"
-      aria-labelledby={`res-title-${resource.id}`}
+      aria-labelledby={`res-title-${resId}`}
     >
       {/* Top Header: Type Icon & Badges */}
       <div className="res-card-header">
@@ -111,7 +118,7 @@ export const ResourceCard = ({
 
       {/* Title & Short Description */}
       <div>
-        <h3 id={`res-title-${resource.id}`} className="res-card-title">
+        <h3 id={`res-title-${resId}`} className="res-card-title">
           {resource.title}
         </h3>
         <p className="res-card-desc mt-1">
@@ -121,7 +128,7 @@ export const ResourceCard = ({
 
       {/* Tags Chips */}
       <div className="res-card-tags">
-        {resource.tags.slice(0, 3).map((tag) => (
+        {tagsList.slice(0, 3).map((tag) => (
           <span key={tag} className="res-tag-pill">
             #{tag}
           </span>
@@ -143,15 +150,34 @@ export const ResourceCard = ({
         </div>
       </div>
 
-      {/* Downloads, Views & Size */}
+      {/* Likes, Views & Size */}
       <div className="flex items-center justify-between text-xs text-ink-soft">
-        <div className="res-stats-info">
-          <span title={`${resource.downloadCount} total downloads`}>
-            <strong>{resource.downloadCount}</strong> dl
-          </span>
+        <div className="res-stats-info flex items-center gap-2">
+          {onToggleLike ? (
+            <button
+              type="button"
+              className={`flex items-center gap-1 transition-colors ${
+                isLiked ? 'text-rust font-semibold' : 'hover:text-rust'
+              }`}
+              onClick={() => onToggleLike(resId)}
+              title={isLiked ? 'Unlike' : 'Like'}
+              aria-label={isLiked ? 'Unlike resource' : 'Like resource'}
+            >
+              <Heart
+                size={12}
+                fill={isLiked ? 'currentColor' : 'none'}
+                aria-hidden="true"
+              />
+              <span>{resource.likeCount || 0}</span>
+            </button>
+          ) : (
+            <span title={`${resource.likeCount || 0} likes`}>
+              <strong>{resource.likeCount || 0}</strong> likes
+            </span>
+          )}
           <span>•</span>
-          <span title={`${resource.viewCount} views`}>
-            <strong>{resource.viewCount}</strong> views
+          <span title={`${resource.viewCount || 0} views`}>
+            <strong>{resource.viewCount || 0}</strong> views
           </span>
         </div>
         <span className="text-ink-faint">{resource.fileSize}</span>
@@ -170,28 +196,28 @@ export const ResourceCard = ({
           <span>Preview</span>
         </button>
 
-        {/* Download Button */}
+        {/* Download / Open Button */}
         <button
           type="button"
           className="res-card-action-btn btn-card-download"
           onClick={() => onDownload(resource)}
-          aria-label={`Download ${resource.title}`}
+          aria-label={`Open or download ${resource.title}`}
         >
           <Download size={13} aria-hidden="true" />
-          <span>Download</span>
+          <span>Open</span>
         </button>
 
         {/* Save Bookmark Button */}
         <button
           type="button"
-          className={`res-card-action-btn btn-card-save ${resource.isSaved ? 'is-saved' : ''}`}
-          onClick={() => onToggleSave(resource.id)}
-          aria-label={resource.isSaved ? `Unsave ${resource.title}` : `Save ${resource.title}`}
-          title={resource.isSaved ? 'Resource saved' : 'Save for later'}
+          className={`res-card-action-btn btn-card-save ${isSaved ? 'is-saved' : ''}`}
+          onClick={() => onToggleSave(resId)}
+          aria-label={isSaved ? `Unsave ${resource.title}` : `Save ${resource.title}`}
+          title={isSaved ? 'Resource saved' : 'Save for later'}
         >
           <Bookmark
             size={14}
-            fill={resource.isSaved ? 'currentColor' : 'none'}
+            fill={isSaved ? 'currentColor' : 'none'}
             aria-hidden="true"
           />
         </button>

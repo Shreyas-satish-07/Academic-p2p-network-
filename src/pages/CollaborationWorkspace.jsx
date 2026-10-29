@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { CheckCircle2, FolderGit2, BookOpen, ExternalLink, X, ArrowLeft } from 'lucide-react';
 import AppLayout from '../components/layout/AppLayout';
@@ -15,44 +15,37 @@ import {
   INITIAL_CONVERSATIONS,
   CURRENT_USER,
 } from '../features/messages/messagesData';
+import { messageApi } from '../services/api';
+import { connectSocket, getSocket } from '../services/socket';
 import { ROUTES } from '../constants/routes';
 
 import '../features/messages/messages.css';
 
 /**
  * CollaborationWorkspace Page
- * Comprehensive real-time collaboration workspace for direct peer messaging,
- * study groups, and project team workspaces.
- * 
- * Future Backend Architecture (Express, MongoDB & Socket.IO):
- * GET    /api/conversations                    -> Fetch conversations with unread counts
- * GET    /api/conversations/:id/messages       -> Paginated message feed for active conversation
- * POST   /api/conversations                    -> Create new DM, study group, or project workspace
- * POST   /api/conversations/:id/messages       -> Submit message & broadcast via Socket.IO
- * POST   /api/conversations/:id/members        -> Add member to workspace
- * GET    /api/conversations/:id/files          -> Fetch workspace files
- * POST   /api/conversations/:id/files          -> Cloudinary upload pipeline for file attachments
- * 
- * Future Socket.IO Events:
- * - connection
- * - join_conversation
- * - leave_conversation
- * - send_message
- * - receive_message
- * - typing_start
- * - typing_stop
- * - message_read
- * 
- * Future MongoDB Models:
- * - Conversation
- * - Message
- * - ConversationMember
- * - FileAttachment
- * - WorkspaceActivity
+ * Real-time collaboration workspace for direct peer messaging,
+ * study groups, and project team workspaces with Socket.io & REST fallback.
  */
 export const CollaborationWorkspace = () => {
   const location = useLocation();
   const navigate = useNavigate();
+
+  // Retrieve current user from local storage
+  const currentUser = useMemo(() => {
+    try {
+      const stored =
+        localStorage.getItem('cohort_user') ||
+        sessionStorage.getItem('cohort_user');
+      if (stored) {
+        return JSON.parse(stored);
+      }
+    } catch {
+      // Fallback
+    }
+    return CURRENT_USER;
+  }, []);
+
+  const currentUserId = (currentUser?._id || currentUser?.id)?.toString();
 
   // Conversations State
   const [conversations, setConversations] = useState(INITIAL_CONVERSATIONS);
@@ -62,7 +55,7 @@ export const CollaborationWorkspace = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedFilter, setSelectedFilter] = useState('all');
 
-  // Screen width detection for responsive behavior (laptop/tablet vs large screen vs mobile)
+  // Screen width detection for responsive behavior
   const [windowWidth, setWindowWidth] = useState(() =>
     typeof window !== 'undefined' ? window.innerWidth : 1440
   );
@@ -77,9 +70,7 @@ export const CollaborationWorkspace = () => {
   const isTabletOrLaptop = windowWidth >= 768 && windowWidth < 1440;
   const isMobile = windowWidth < 768;
 
-  // Right Panel State:
-  // On large screens (1440px+): default open
-  // On tablet/laptop (768px-1439px): default collapsed/hidden
+  // Right Panel State
   const [isRightPanelOpen, setIsRightPanelOpen] = useState(() => {
     if (typeof window !== 'undefined') {
       return window.innerWidth >= 1440;
@@ -113,6 +104,230 @@ export const CollaborationWorkspace = () => {
     }, 3500);
   };
 
+  /**
+   * Fetch user conversations from backend API
+   */
+  const fetchConversations = useCallback(async () => {
+    try {
+      const res = await messageApi.getConversations();
+      const apiConversations = res.data?.data?.conversations;
+      if (Array.isArray(apiConversations) && apiConversations.length > 0) {
+        setConversations(apiConversations);
+        // Select first conversation if active one is not set or not in list
+        setActiveConversationId((prev) => {
+          if (!prev || !apiConversations.some((c) => c.id === prev)) {
+            return apiConversations[0].id;
+          }
+          return prev;
+        });
+      }
+    } catch {
+      // Retain INITIAL_CONVERSATIONS if offline or initial state
+    }
+  }, []);
+
+  // Initialize Socket.io connection and load conversations
+  useEffect(() => {
+    fetchConversations();
+
+    const token =
+      localStorage.getItem('cohort_token') ||
+      sessionStorage.getItem('cohort_token');
+
+    if (token) {
+      connectSocket(token);
+    }
+  }, [fetchConversations]);
+
+  // Track previous active room for room leave
+  const prevActiveConvRef = useRef(activeConversationId);
+
+  /**
+   * Handle room join & fetch message history for active conversation
+   */
+  const loadMessagesForActiveConversation = useCallback(
+    async (convId) => {
+      if (!convId) return;
+
+      const socket = getSocket();
+      // Leave previous room if different
+      if (prevActiveConvRef.current && prevActiveConvRef.current !== convId) {
+        socket?.emit('conversation:leave', { conversationId: prevActiveConvRef.current });
+      }
+      prevActiveConvRef.current = convId;
+
+      // Join socket room
+      socket?.emit('conversation:join', { conversationId: convId });
+
+      // Mark as read via socket and REST
+      socket?.emit('conversation:read', { conversationId: convId });
+      messageApi.markAsRead(convId).catch(() => {});
+
+      // Clear unread count locally
+      setConversations((prev) =>
+        prev.map((c) => (c.id === convId ? { ...c, unreadCount: 0 } : c))
+      );
+
+      // Fetch messages from backend API
+      try {
+        const res = await messageApi.getMessages(convId, { limit: 100 });
+        const fetchedMessages = res.data?.data?.messages;
+        if (Array.isArray(fetchedMessages)) {
+          setConversations((prev) =>
+            prev.map((c) =>
+              c.id === convId
+                ? {
+                    ...c,
+                    messages: fetchedMessages.map((m) => ({
+                      ...m,
+                      isCurrentUser:
+                        m.isCurrentUser ?? (m.senderId?.toString() === currentUserId),
+                    })),
+                  }
+                : c
+            )
+          );
+        }
+      } catch {
+        // Keep existing conversation messages if offline
+      }
+    },
+    [currentUserId]
+  );
+
+  useEffect(() => {
+    if (activeConversationId) {
+      loadMessagesForActiveConversation(activeConversationId);
+    }
+  }, [activeConversationId, loadMessagesForActiveConversation]);
+
+  /**
+   * Register Socket.io live event listeners for real-time messaging
+   */
+  useEffect(() => {
+    const socket = getSocket();
+    if (!socket) return;
+
+    // Incoming new message event
+    const handleNewMessage = (payload) => {
+      const { conversationId, message } = payload || {};
+      if (!conversationId || !message) return;
+
+      const formattedMsg = {
+        ...message,
+        isCurrentUser:
+          message.isCurrentUser ?? (message.senderId?.toString() === currentUserId),
+      };
+
+      setConversations((prev) => {
+        const targetIndex = prev.findIndex((c) => c.id === conversationId);
+        if (targetIndex === -1) {
+          fetchConversations();
+          return prev;
+        }
+
+        const targetConv = prev[targetIndex];
+        const isCurrentActive = activeConversationId === conversationId;
+
+        // De-duplicate if optimistic or existing message exists
+        const existingMessages = targetConv.messages || [];
+        const alreadyExists = existingMessages.some(
+          (m) =>
+            m.id === formattedMsg.id ||
+            m._id === formattedMsg._id ||
+            (m.content === formattedMsg.content && m.isCurrentUser && formattedMsg.isCurrentUser)
+        );
+
+        let updatedMessages;
+        if (alreadyExists) {
+          updatedMessages = existingMessages.map((m) =>
+            m.id === formattedMsg.id || m._id === formattedMsg._id
+              ? formattedMsg
+              : m.content === formattedMsg.content && m.isCurrentUser
+              ? formattedMsg
+              : m
+          );
+        } else {
+          updatedMessages = [...existingMessages, formattedMsg];
+        }
+
+        const updatedConv = {
+          ...targetConv,
+          lastMessage: formattedMsg.content,
+          lastMessageAt: formattedMsg.createdAt || 'Just now',
+          unreadCount: isCurrentActive ? 0 : (targetConv.unreadCount || 0) + 1,
+          messages: updatedMessages,
+        };
+
+        // Move active conversation to top of list
+        const others = prev.filter((c) => c.id !== conversationId);
+        return [updatedConv, ...others];
+      });
+
+      // If active conversation received message from other peer, mark read immediately
+      if (activeConversationId === conversationId && !formattedMsg.isCurrentUser) {
+        socket.emit('conversation:read', { conversationId });
+        messageApi.markAsRead(conversationId).catch(() => {});
+      }
+    };
+
+    // Conversation preview updated event
+    const handleConversationUpdated = (payload) => {
+      const { conversationId, lastMessage } = payload || {};
+      if (!conversationId || !lastMessage) return;
+
+      setConversations((prev) => {
+        const target = prev.find((c) => c.id === conversationId);
+        if (!target) return prev;
+        const updated = {
+          ...target,
+          lastMessage,
+          lastMessageAt: 'Just now',
+        };
+        return [updated, ...prev.filter((c) => c.id !== conversationId)];
+      });
+    };
+
+    // Message read receipt event
+    const handleMessageRead = (payload) => {
+      const { conversationId, userId } = payload || {};
+      if (!conversationId || !userId) return;
+
+      setConversations((prev) =>
+        prev.map((c) => {
+          if (c.id === conversationId && c.messages) {
+            const updated = c.messages.map((m) => {
+              const readList = Array.isArray(m.readBy) ? m.readBy : [];
+              const isAlreadyRead = readList.some(
+                (r) => (r.user?._id || r.user)?.toString() === userId
+              );
+              if (!isAlreadyRead) {
+                return {
+                  ...m,
+                  readBy: [...readList, { user: userId, readAt: new Date() }],
+                  isRead: true,
+                };
+              }
+              return m;
+            });
+            return { ...c, messages: updated };
+          }
+          return c;
+        })
+      );
+    };
+
+    socket.on('message:new', handleNewMessage);
+    socket.on('conversation:updated', handleConversationUpdated);
+    socket.on('message:read', handleMessageRead);
+
+    return () => {
+      socket.off('message:new', handleNewMessage);
+      socket.off('conversation:updated', handleConversationUpdated);
+      socket.off('message:read', handleMessageRead);
+    };
+  }, [activeConversationId, currentUserId, fetchConversations]);
+
   // Synchronize route state and query params from other pages
   useEffect(() => {
     const params = new URLSearchParams(location.search);
@@ -124,6 +339,7 @@ export const CollaborationWorkspace = () => {
       const match = conversations.find(
         (c) =>
           c.id === targetId ||
+          c._id === targetId ||
           c.projectId === targetId ||
           c.groupId === targetId ||
           (targetId === 'project-1' && c.id === 'team-nimbus') ||
@@ -147,7 +363,10 @@ export const CollaborationWorkspace = () => {
 
   // Active conversation object
   const activeConversation = useMemo(() => {
-    return conversations.find((c) => c.id === activeConversationId) || null;
+    return (
+      conversations.find((c) => c.id === activeConversationId || c._id === activeConversationId) ||
+      null
+    );
   }, [conversations, activeConversationId]);
 
   // Handle switching active conversation
@@ -155,62 +374,97 @@ export const CollaborationWorkspace = () => {
     setActiveConversationId(convId);
     setMobileView('chat');
     setActiveRightTab('overview');
-
-    // Mark unread count as 0 locally
-    setConversations((prev) =>
-      prev.map((c) => (c.id === convId ? { ...c, unreadCount: 0 } : c))
-    );
   };
 
-  // Handle sending a new message
-  const handleSendMessage = (text, attachment = null) => {
-    if (!activeConversation) return;
+  /**
+   * Handle sending a new message with Socket.io & REST fallback
+   */
+  const handleSendMessage = async (text, attachment = null) => {
+    if (!activeConversation || !text?.trim()) return;
 
-    const newMsg = {
-      id: `msg-${Date.now()}`,
-      senderId: CURRENT_USER.id,
-      senderName: CURRENT_USER.name,
-      senderInitials: CURRENT_USER.initials,
-      content: text,
+    const trimmedText = text.trim();
+    const tempId = `temp-${Date.now()}`;
+    const targetConvId = activeConversation.id || activeConversation._id;
+
+    // Optimistic message object for immediate UI responsiveness
+    const optimisticMsg = {
+      id: tempId,
+      _id: tempId,
+      conversationId: targetConvId,
+      senderId: currentUserId || 'current',
+      senderName: currentUser.name || 'You',
+      senderInitials: currentUser.initials || 'U',
+      senderDepartment: currentUser.department || '',
+      content: trimmedText,
       createdAt: 'Just now',
       type: attachment ? 'file' : 'text',
       attachment: attachment || undefined,
       isCurrentUser: true,
+      readBy: [],
     };
 
+    // Update conversation feed optimistically
     setConversations((prev) =>
       prev.map((c) => {
-        if (c.id === activeConversation.id) {
+        if (c.id === targetConvId) {
           return {
             ...c,
-            lastMessage: text,
+            lastMessage: trimmedText,
             lastMessageAt: 'Just now',
             unreadCount: 0,
-            messages: [...(c.messages || []), newMsg],
+            messages: [...(c.messages || []), optimisticMsg],
           };
         }
         return c;
       })
     );
+
+    const socket = getSocket();
+    const isSocketReady = socket && socket.connected;
+
+    if (isSocketReady) {
+      // Primary: Broadcast through authenticated Socket.io connection
+      socket.emit('message:send', {
+        conversationId: targetConvId,
+        content: trimmedText,
+      });
+    } else {
+      // Secondary: REST fallback endpoint
+      try {
+        const res = await messageApi.sendMessage(targetConvId, trimmedText);
+        const savedMessage = res.data?.data?.message;
+
+        if (savedMessage) {
+          const finalMsg = {
+            ...savedMessage,
+            isCurrentUser: true,
+          };
+
+          setConversations((prev) =>
+            prev.map((c) => {
+              if (c.id === targetConvId) {
+                const cleaned = (c.messages || []).filter(
+                  (m) => m.id !== tempId && m.id !== finalMsg.id
+                );
+                return {
+                  ...c,
+                  messages: [...cleaned, finalMsg],
+                };
+              }
+              return c;
+            })
+          );
+        }
+      } catch (err) {
+        console.warn('REST fallback message delivery failed:', err);
+        showToast('Message could not be delivered. Please check connection.');
+      }
+    }
   };
 
   // Handle file download
   const handleDownloadFile = (file) => {
     showToast(`Downloading ${file.name}...`);
-    // Optionally increment download count locally
-    setConversations((prev) =>
-      prev.map((c) => {
-        if (c.id === activeConversation?.id && c.files) {
-          return {
-            ...c,
-            files: c.files.map((f) =>
-              f.id === file.id ? { ...f, downloadsCount: (f.downloadsCount || 0) + 1 } : f
-            ),
-          };
-        }
-        return c;
-      })
-    );
   };
 
   // Handle adding peer to active workspace
@@ -247,12 +501,37 @@ export const CollaborationWorkspace = () => {
     showToast(`${peer.name} added to ${activeConversation.name}!`);
   };
 
-  // Handle creating a new conversation/workspace
-  const handleCreateConversation = (newConv) => {
-    setConversations((prev) => [newConv, ...prev]);
-    setActiveConversationId(newConv.id);
+  /**
+   * Handle creating or reusing a conversation/workspace
+   */
+  const handleCreateConversation = async (data) => {
+    if (data.type === 'direct' && data.recipientId) {
+      try {
+        const res = await messageApi.createDirectConversation(data.recipientId);
+        const conv = res.data?.data?.conversation;
+
+        if (conv) {
+          setConversations((prev) => {
+            const exists = prev.find((c) => c.id === conv.id || c._id === conv._id);
+            if (exists) return prev;
+            return [conv, ...prev];
+          });
+          setActiveConversationId(conv.id || conv._id);
+          setMobileView('chat');
+          showToast(`Direct message with ${conv.name} opened.`);
+          return;
+        }
+      } catch (err) {
+        console.error('Failed to create direct conversation:', err);
+        showToast('Could not start direct conversation.');
+      }
+    }
+
+    // Local / Group / Project workspace creation fallback
+    setConversations((prev) => [data, ...prev]);
+    setActiveConversationId(data.id);
     setMobileView('chat');
-    showToast(`${newConv.name} created successfully!`);
+    showToast(`${data.name} created successfully!`);
   };
 
   // Filter conversations list locally
@@ -267,9 +546,9 @@ export const CollaborationWorkspace = () => {
       // Search keyword filter
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase().trim();
-        const matchesName = c.name.toLowerCase().includes(q);
+        const matchesName = c.name?.toLowerCase().includes(q);
         const matchesLastMsg = c.lastMessage?.toLowerCase().includes(q);
-        const matchesMember = c.members?.some((m) => m.name.toLowerCase().includes(q));
+        const matchesMember = c.members?.some((m) => m.name?.toLowerCase().includes(q));
         if (!matchesName && !matchesLastMsg && !matchesMember) return false;
       }
 
@@ -327,7 +606,7 @@ export const CollaborationWorkspace = () => {
             isDetailsOpen={isMobile ? mobileView === 'details' : isRightPanelOpen}
             onSendMessage={handleSendMessage}
             onAttachClick={() =>
-              showToast('File uploads will be connected to Cloudinary later.')
+              showToast('File uploads and cloud attachments are coming soon in Phase 9.')
             }
             onDownloadAttachment={handleDownloadFile}
           />
@@ -417,8 +696,8 @@ export const CollaborationWorkspace = () => {
                         </span>
                         <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginTop: '6px' }}>
                           <span className="conv-filter-chip">DSA</span>
-                          <span className="conv-filter-chip">C++</span>
-                          <span className="conv-filter-chip">Algorithms</span>
+                          <span className="conv-filter-chip">DBMS</span>
+                          <span className="conv-filter-chip">System Design</span>
                         </div>
                       </div>
                     </div>

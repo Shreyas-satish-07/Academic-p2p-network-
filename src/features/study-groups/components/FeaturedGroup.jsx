@@ -21,7 +21,17 @@ export const FeaturedGroup = ({
 }) => {
   if (!group) return null;
 
+  const groupId = group.id || group._id;
   const isFull = group.memberCount >= group.maxMembers && !group.joined;
+  const tagsList = group.tags || group.topics || [];
+  const groupInitials = group.name
+    ? group.name
+        .split(' ')
+        .filter(Boolean)
+        .slice(0, 2)
+        .map((w) => w[0]?.toUpperCase())
+        .join('')
+    : 'SG';
 
   return (
     <section className="sg-featured-card" aria-label="Featured Study Group Spotlight">
@@ -49,7 +59,7 @@ export const FeaturedGroup = ({
           role="img"
           aria-label={`${group.name} avatar`}
         >
-          <span>GD</span>
+          <span>{groupInitials}</span>
         </div>
 
         {/* Info */}
@@ -73,7 +83,7 @@ export const FeaturedGroup = ({
 
           {/* Tags */}
           <div className="sg-featured-tags">
-            {group.tags.map((tag) => (
+            {tagsList.map((tag) => (
               <span key={tag} className="sg-tag-pill">
                 #{tag}
               </span>
@@ -98,9 +108,9 @@ export const FeaturedGroup = ({
             <div className="flex items-center gap-1.5 ml-2">
               <span className="text-xs text-ink-faint mr-1">Members:</span>
               <div className="sg-members-stack">
-                {(group.members || []).slice(0, 3).map((m) => (
+                {(group.members || []).slice(0, 3).map((m, idx) => (
                   <div
-                    key={m.id}
+                    key={m.id || m._id || idx}
                     className="sg-member-pill-avatar"
                     title={`${m.name} (${m.role})`}
                   >
@@ -150,7 +160,7 @@ export const FeaturedGroup = ({
                   ? 'sg-join-btn-full'
                   : 'sg-join-btn-unjoined'
               }`}
-              onClick={() => onToggleJoin(group.id)}
+              onClick={() => onToggleJoin(groupId)}
               disabled={isFull && !group.joined}
               aria-label={group.joined ? `Leave ${group.name}` : `Join ${group.name}`}
             >

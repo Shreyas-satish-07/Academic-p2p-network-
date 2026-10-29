@@ -19,6 +19,10 @@ export const DiscussionCard = ({
   onUpvote,
   hasUpvoted = false,
 }) => {
+  const discussionId = discussion.id || discussion._id;
+  const authorName = typeof discussion.author === 'object' ? discussion.author?.name || 'Cohort Student' : discussion.author || 'Cohort Student';
+  const authorInitials = discussion.authorInitials || (typeof authorName === 'string' ? authorName.substring(0, 2).toUpperCase() : 'CO');
+
   return (
     <article className="disc-card" aria-label={`Discussion: ${discussion.title}`}>
       {/* Left Metrics Pillar */}
@@ -28,7 +32,7 @@ export const DiscussionCard = ({
           className={`disc-vote-btn ${hasUpvoted ? 'upvoted' : ''}`}
           onClick={(e) => {
             e.stopPropagation();
-            onUpvote(discussion.id);
+            onUpvote(discussionId);
           }}
           aria-label={`Upvote question. Current votes: ${discussion.voteCount}`}
         >
@@ -115,11 +119,11 @@ export const DiscussionCard = ({
         {/* Footer with Author and View Action */}
         <div className="disc-card-footer">
           <div className="disc-author-info">
-            <div className="disc-author-avatar" title={discussion.author}>
-              {discussion.authorInitials || discussion.author.substring(0, 2).toUpperCase()}
+            <div className="disc-author-avatar" title={authorName}>
+              {authorInitials}
             </div>
             <div>
-              <span className="disc-author-name">{discussion.author}</span>
+              <span className="disc-author-name">{authorName}</span>
               <span className="disc-author-sub" style={{ marginLeft: '6px' }}>
                 {discussion.authorDepartment ? `${discussion.authorDepartment} • ` : ''}
                 {discussion.createdAt}

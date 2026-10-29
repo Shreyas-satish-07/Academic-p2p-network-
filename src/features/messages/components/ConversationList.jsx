@@ -74,14 +74,17 @@ export const ConversationList = ({
             <p>No conversations found matching your filter.</p>
           </div>
         ) : (
-          conversations.map((conv) => (
-            <ConversationItem
-              key={conv.id}
-              conversation={conv}
-              isActive={conv.id === activeConversationId}
-              onSelect={onSelectConversation}
-            />
-          ))
+          conversations.map((conv) => {
+            const convId = conv.id || conv._id;
+            return (
+              <ConversationItem
+                key={convId}
+                conversation={conv}
+                isActive={convId === activeConversationId}
+                onSelect={onSelectConversation}
+              />
+            );
+          })
         )}
       </div>
     </aside>

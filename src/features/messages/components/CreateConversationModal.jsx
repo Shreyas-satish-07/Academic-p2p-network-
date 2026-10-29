@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { X, User, BookOpen, FolderGit2, Check, AlertCircle } from 'lucide-react';
 import { AVAILABLE_PEERS, CURRENT_USER } from '../messagesData';
+import { userApi } from '../../../services/api';
 
 /**
  * CreateConversationModal component
@@ -19,6 +20,47 @@ export const CreateConversationModal = ({
   const [selectedMemberIds, setSelectedMemberIds] = useState(new Set());
   const [error, setError] = useState('');
   const [peerSearch, setPeerSearch] = useState('');
+  const [peerList, setPeerList] = useState(AVAILABLE_PEERS);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  useEffect(() => {
+    let isMounted = true;
+    if (isOpen) {
+      userApi
+        .getUsers({ limit: 50 })
+        .then((res) => {
+          const apiUsers = res.data?.data?.users || res.data?.data || [];
+          if (isMounted && Array.isArray(apiUsers) && apiUsers.length > 0) {
+            const mapped = apiUsers.map((u) => {
+              const name = u.name || 'Cohort Student';
+              const initials =
+                u.initials ||
+                name
+                  .split(/\s+/)
+                  .slice(0, 2)
+                  .map((w) => w[0]?.toUpperCase())
+                  .join('');
+              return {
+                id: (u._id || u.id)?.toString(),
+                _id: (u._id || u.id)?.toString(),
+                name,
+                initials,
+                department: u.department || 'Engineering',
+                semester: u.semester ? `${u.semester}th Semester` : '',
+                status: 'online',
+                avatarColor: '#ffffff',
+                avatarBg: 'var(--pine, #2f5d50)',
+              };
+            });
+            setPeerList(mapped);
+          }
+        })
+        .catch(() => {});
+    }
+    return () => {
+      isMounted = false;
+    };
+  }, [isOpen]);
 
   useEffect(() => {
     const handleKeyDown = (e) => {
@@ -44,7 +86,7 @@ export const CreateConversationModal = ({
     });
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
 
     if (convType === 'direct') {
@@ -53,37 +95,23 @@ export const CreateConversationModal = ({
         return;
       }
 
-      const newDirectConv = {
-        id: `conv-direct-${Date.now()}`,
-        type: 'direct',
-        name: selectedPeer.name,
-        initials: selectedPeer.initials,
-        avatarColor: selectedPeer.avatarColor,
-        avatarBg: selectedPeer.avatarBg,
-        isOnline: selectedPeer.status === 'online',
-        unreadCount: 0,
-        lastMessage: 'Conversation started.',
-        lastMessageAt: 'Just now',
-        memberCount: 2,
-        members: [CURRENT_USER, selectedPeer],
-        messages: [
-          {
-            id: `msg-${Date.now()}`,
-            senderId: CURRENT_USER.id,
-            senderName: CURRENT_USER.name,
-            senderInitials: CURRENT_USER.initials,
-            content: `Started direct conversation with ${selectedPeer.name}.`,
-            createdAt: 'Just now',
-            type: 'system',
-            isCurrentUser: true,
-          },
-        ],
-        files: [],
-        activity: [],
-      };
+      setIsSubmitting(true);
+      setError('');
 
-      onCreateConversation(newDirectConv);
-      onClose();
+      try {
+        await onCreateConversation({
+          type: 'direct',
+          recipientId: selectedPeer.id || selectedPeer._id,
+          peer: selectedPeer,
+        });
+        onClose();
+      } catch (err) {
+        setError(
+          err.response?.data?.message || err.message || 'Failed to start direct conversation.'
+        );
+      } finally {
+        setIsSubmitting(false);
+      }
       return;
     }
 
@@ -101,7 +129,7 @@ export const CreateConversationModal = ({
 
     const initialMembers = [
       { ...CURRENT_USER, role: 'Owner' },
-      ...AVAILABLE_PEERS.filter((p) => selectedMemberIds.has(p.id)),
+      ...peerList.filter((p) => selectedMemberIds.has(p.id)),
     ];
 
     const newWorkspaceConv = {
@@ -145,7 +173,7 @@ export const CreateConversationModal = ({
     onClose();
   };
 
-  const filteredPeers = AVAILABLE_PEERS.filter(
+  const filteredPeers = peerList.filter(
     (p) =>
       p.name.toLowerCase().includes(peerSearch.toLowerCase()) ||
       p.department.toLowerCase().includes(peerSearch.toLowerCase())
@@ -383,11 +411,16 @@ export const CreateConversationModal = ({
               type="button"
               className="conv-filter-chip"
               onClick={onClose}
+              disabled={isSubmitting}
             >
               Cancel
             </button>
-            <button type="submit" className="conv-new-btn">
-              {convType === 'direct' ? 'Start Direct Chat' : 'Create Workspace'}
+            <button type="submit" className="conv-new-btn" disabled={isSubmitting}>
+              {isSubmitting
+                ? 'Connecting...'
+                : convType === 'direct'
+                ? 'Start Direct Chat'
+                : 'Create Workspace'}
             </button>
           </div>
         </form>
